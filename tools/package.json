@@ -1,0 +1,15 @@
+{
+  "name": "cortico-bridge-fleet-tools",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Tooling for the CBP spec gate. validate_cbp.mjs compiles spec/CBP-v1.json with ajv draft 2020-12 strict and runs spec/conformance.json positive+negative frame vectors. npm test runs that gate inside the frames test suite.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "validate:cbp": "node validate_cbp.mjs",
+    "test": "node --test ../tests/frames/"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  }
+}

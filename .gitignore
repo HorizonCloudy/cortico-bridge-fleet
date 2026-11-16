@@ -1,0 +1,65 @@
+# cortico-bridge-fleet — 忽略规则
+# 口径：node_modules、dist、缓存、日志、临时工作目录全部排除；lock 文件按发布与否取舍（见文末）。
+
+# ── 依赖目录（5 处：4 个包 + tools，共 7662 个文件，npm ci 可从 lock 重建）──
+node_modules/
+
+# ── 构建产物（cortico-bridge-core/dist 38 个文件 = "build": "tsc -p tsconfig.json" 的输出，
+#    packages/cortico-bridge-core/package.json:24；发布/测试前重建，不入库）──
+dist/
+
+# ── astrbot import 残留：测试以仓根为 cwd 时，astrbot 的 core/paths.py 在 cwd 落
+#    data/cmd_config.json 与 data/t2i_templates/（证据 reports/f-side-astrbot.md:179；
+#    同口径先例 cortico-bridge-astrbot/.gitignore:6）。只锚定仓根，别误伤包内文件。
+/data/
+
+# ── 临时工作目录 ──
+# drymount 闸落 packages/cortico-world-{neko,maibot,astrbot-bridge}/.drymount-scratch/
+# （tests/drymount-gate.mts:16 scratchDir: '.drymount-scratch'）
+.drymount-scratch/
+# tools/check_ext.ts:215 mkdtempSync(join(HERE, '.check-ext-scratch-'))
+.check-ext-scratch-*/
+data/temp/
+
+# ── 缓存 ──
+# JS/TS：tsc 增量与 npm 杂项
+*.tsbuildinfo
+.eslintcache
+# Python（tools/*.py 跑出来）
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+# 覆盖率
+coverage/
+.nyc_output/
+htmlcov/
+
+# ── 日志 ──
+*.log
+logs/
+
+# ── 包管理临时物 ──
+*.tgz
+package.json.*.tmp
+npm-debug.log*
+yarn-error.log*
+
+# ── 编辑器 / OS 垃圾 ──
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+
+# ── package-lock.json 取舍 ──
+# packages/* 四个 lock 入库：这些包是要发布的（core 是版本化 npm 包名 cortico-bridge-core，
+# 三个 world 包带 cortico 块与 files 白名单，如 packages/cortico-world-neko/package.json:29），
+# 发布要求可复现的依赖树，lock 必须随仓走。
+# tools/ 是纯仓内构建工具（tools/package.json:3 "private": true），不发布 → 它的 lock 不入库，
+# 按 tools/package.json 重装即可。
+tools/package-lock.json

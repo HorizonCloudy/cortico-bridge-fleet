@@ -1,0 +1,879 @@
+{
+  "schema": "cortico-bridge-fleet/pins/1",
+  "generated": "2026-11-15",
+  "root": "C:/Users/54301/tmp/botfw-compat-20261115",
+  "evidence": [
+    "reports/00-ACQUISITION.md",
+    "reports/_BUILD-PLAN.md §4",
+    "reports/r-neko.md",
+    "reports/r-maibot.md",
+    "reports/r-astrbot.md",
+    "reports/r-koishi.md",
+    "reports/r-nonebot-onebot.md"
+  ],
+  "refresh": "python -I tools/gen_pins.py --check",
+  "repos": {
+    "neko": {
+      "dir": "upstream/neko",
+      "remote": "Project-N-E-K-O/N.E.K.O",
+      "branch": "main",
+      "sha9": "52e973ed2",
+      "version": "0.9.1"
+    },
+    "maibot": {
+      "dir": "upstream/maibot",
+      "remote": "Mai-with-u/MaiBot",
+      "branch": "main",
+      "sha9": "478f671e6",
+      "version": "1.4.5"
+    },
+    "maibot-sdk": {
+      "dir": "upstream/maibot-plugin-sdk",
+      "remote": "Mai-with-u/maibot-plugin-sdk",
+      "branch": "main",
+      "sha9": "f9984673d",
+      "version": "2.23.0"
+    },
+    "onebot-11": {
+      "dir": "upstream/onebot-11",
+      "remote": "botuniverse/onebot-11",
+      "branch": "master",
+      "sha9": "d4456ee70",
+      "version": "v11 spec, frozen 2022-08"
+    },
+    "onebot-12": {
+      "dir": "upstream/onebot",
+      "remote": "botuniverse/onebot",
+      "branch": "main",
+      "sha9": "d533f0fca",
+      "version": "v12 draft, not promised"
+    },
+    "cortico": {
+      "dir": "repos/cortico",
+      "remote": "Pal-AI-Lab/Cortico",
+      "branch": "main",
+      "sha9": "836238311",
+      "version": "0.2.15, world api 6"
+    },
+    "astrbot": {
+      "dir": "repos/astrbot",
+      "remote": "AstrBotDevs/AstrBot",
+      "branch": "master",
+      "sha9": "133dd9f86",
+      "version": "4.29.4 (ff from eee9f81ca; line refs per r-astrbot)"
+    },
+    "koishi": {
+      "dir": "repos/koishi",
+      "remote": "koishijs/koishi",
+      "branch": "master",
+      "sha9": "97d5c3957",
+      "version": "4.18.11"
+    },
+    "cordis-rc": {
+      "dir": "repos/cordis",
+      "remote": "cordisjs/cordis",
+      "branch": "main",
+      "sha9": "820b8e5a2",
+      "version": "4.0.0-rc.13 (rename ledger only, never co-install)"
+    },
+    "cordis-v3": {
+      "dir": "repos/cordis-v3",
+      "remote": "cordisjs/cordis",
+      "branch": "cordis-v3.18.1",
+      "sha9": "4658414e9",
+      "version": "3.18.x line"
+    },
+    "satori-main": {
+      "dir": "repos/satori",
+      "remote": "satorijs/satori",
+      "branch": "main",
+      "sha9": "db22bb3c2",
+      "version": "5.0.0-alpha line, not pinned"
+    },
+    "satori-4.6.1": {
+      "dir": "repos/satori-v4.6.1",
+      "remote": "satorijs/satori",
+      "branch": "satori-v4.6.1",
+      "sha9": "fa5ec61ac",
+      "version": "4.6.1 line"
+    },
+    "nonebot2": {
+      "dir": "repos/nonebot2",
+      "remote": "nonebot/nonebot2",
+      "branch": "master",
+      "sha9": "2450b67a1",
+      "version": "2.5.0"
+    },
+    "adapter-onebot": {
+      "dir": "repos/adapter-onebot",
+      "remote": "nonebot/adapter-onebot",
+      "branch": "master",
+      "sha9": "8e0d1145a",
+      "version": "2.4.6 (HEAD!=wheel 23/49: cite wheel lines)"
+    },
+    "koishi-adapter-onebot": {
+      "dir": "repos/koishi-plugin-adapter-onebot",
+      "remote": "koishijs/koishi-plugin-adapter-onebot",
+      "branch": "main",
+      "sha9": "4109eb95c",
+      "version": "6.9.5"
+    },
+    "world-astrbot": {
+      "dir": "repos/world-astrbot",
+      "remote": "as124da1231/cortico-world-astrbot",
+      "branch": "main",
+      "sha9": "4725feee6",
+      "version": "1.3.4 (frame-table ancestor, G8)"
+    },
+    "astrbot-plugin-bridge": {
+      "dir": "repos/astrbot-plugin-bridge",
+      "remote": "as124da1231/astrbot_plugin_cortico_bridge",
+      "branch": "main",
+      "sha9": "37c1e6ccd",
+      "version": "bridge counterpart to absorb"
+    },
+    "world-onebot": {
+      "dir": "repos/onebot",
+      "remote": "AqualCross/cortico-world-onebot",
+      "branch": "master",
+      "sha9": "2e91b7fb1",
+      "version": "0.3.1 (third-party, untouched)"
+    },
+    "world-telegram": {
+      "dir": "repos/telegram",
+      "remote": "480902880/cortico-world-telegram",
+      "branch": "main",
+      "sha9": "6bc05cb0e",
+      "version": "dedup-shape source"
+    },
+    "world-qq-lite": {
+      "dir": "repos/qq-lite",
+      "remote": "hth768/cortico-world-qq-lite",
+      "branch": "main",
+      "sha9": "f908b0357",
+      "version": "dual-role driver baseline"
+    }
+  },
+  "node": {
+    "min": "22.16.0",
+    "ci_matrix": [
+      "22.16",
+      "24"
+    ],
+    "registry": "https://registry.npmmirror.com",
+    "npm_flags": [
+      "--ignore-scripts"
+    ],
+    "note": "本机 npmjs TLS 故障走 npmmirror；取证实测 node v27-alpha 不作兼容口径。Koishi 线产物必须 CJS main。"
+  },
+  "python_buckets": {
+    "neko_py311": {
+      "interpreter": "C:/Users/54301/tmp/botfw-envs/neko-py311/Scripts/python.exe",
+      "python": "==3.11.*",
+      "tested": "3.11.16",
+      "packages": {
+        "n-e-k-o": "editable @52e973ed2",
+        "numpy": ">=1.26,<1.27",
+        "packaging": "==26.3"
+      }
+    },
+    "maibot_py312": {
+      "interpreter": "C:/Users/54301/tmp/botfw-envs/maibot-py312/Scripts/python.exe",
+      "python": ">=3.12",
+      "tested": "3.12.14",
+      "packages": {
+        "maibot": "==1.4.5",
+        "maibot-plugin-sdk": "==2.23.0",
+        "numpy": ">=2.2.6"
+      },
+      "env": {
+        "MAIBOT_INSTANCE_DIR": "C:/Users/54301/tmp/botfw-envs/maibot-instance"
+      },
+      "env_note": "C1-17：wheel 安装态 src.common.logger 导入期即要该 env（缺失 RuntimeError）；词表闸跑宿主侧件必须带；沙盒目录为既有隔离产物"
+    },
+    "astrbot_py312": {
+      "interpreter": "C:/Users/54301/tmp/botfw-envs/astrbot-py312/Scripts/python.exe",
+      "python": ">=3.12",
+      "tested": "3.12.14",
+      "packages": {
+        "astrbot": "==4.29.4 (wheel==repo 585 files)"
+      }
+    },
+    "nonebot_py311": {
+      "interpreter": "C:/Users/54301/tmp/botfw-envs/nb-py311/Scripts/python.exe",
+      "python": "3.11.x",
+      "tested": "3.11.16",
+      "packages": {
+        "nonebot2": "==2.5.0 (fastapi extra required)",
+        "nonebot-adapter-onebot": "==2.4.6",
+        "fastapi": "==0.111.0",
+        "starlette": "==0.37.2",
+        "nonebug": "==0.4.4",
+        "pytest": "<9",
+        "pytest-asyncio": "==0.24.0"
+      }
+    },
+    "rules": [
+      "禁装全局 Python",
+      "禁动 D:/botfw/bridge-venv",
+      "跨桶共享层禁依赖 numpy",
+      "npm/pip 一律按下表精确版本装，禁 latest（C1-13）"
+    ]
+  },
+  "npm_pins": {
+    "koishi": {
+      "version": "4.18.11",
+      "shasum9": "53861953c"
+    },
+    "@koishijs/core": {
+      "version": "4.18.11",
+      "shasum9": "eccf09b19"
+    },
+    "cordis": {
+      "version": "3.18.1",
+      "shasum9": "544befb10"
+    },
+    "@cordisjs/core": {
+      "version": "3.18.1",
+      "shasum9": "b0aace6e8"
+    },
+    "@satorijs/core": {
+      "version": "4.6.1",
+      "shasum9": "2c842f9d3"
+    },
+    "@satorijs/protocol": {
+      "version": "1.7.0",
+      "shasum9": "0eb0936a8"
+    },
+    "koishi-plugin-adapter-onebot": {
+      "version": "6.9.5",
+      "shasum9": "8192ba3c8"
+    },
+    "minato": {
+      "version": "3.7.0",
+      "shasum9": "eb28b57e2",
+      "note": "只由 @koishijs/core 带入；裸装解析 4.0.1 → peer cordis rc → ERESOLVE"
+    },
+    "@koishijs/loader": {
+      "version": "4.6.11"
+    },
+    "cordis-rc-rename-ledger-only": {
+      "package": "cordis",
+      "version": "4.0.0-rc.13",
+      "shasum9": "d72bb0813",
+      "note": "改名账用；@cordisjs/core 无 rc 版（ETARGET）；禁与上表混装"
+    }
+  },
+  "neko_sdk": {
+    "host_app_version": "0.9.1",
+    "sdk_version": "0.1.0",
+    "declare_supported": ">=0.1.0,<0.2.0",
+    "space": "闸只读 plugin/sdk/shared/constants.py SDK_VERSION；引用 APP_VERSION 0.9.x 的 supported 永远加载不上（§1.3-2）",
+    "syntax_rules": [
+      "必须 SpecifierSet 语法：比较符+版本",
+      "裸版本串 '0.2.0' 判 invalid specifier 拒载",
+      "wildcard '0.1.*' 判 invalid 拒载",
+      "packaging==26.3 在场时字符串相等回退分支不可达（C1-9）"
+    ],
+    "builtin_precedent": "mcp_adapter 实测声明 >=0.1.0,<0.3.0"
+  },
+  "ports": [
+    {
+      "port": 39701,
+      "proto": "tcp",
+      "owner": "cortico-world-neko listen",
+      "bind": "127.0.0.1 建议缺省",
+      "env": "是",
+      "evidence": "蓝图 §2.1 静态避让推测口径；R6 装机以 doctor 实扫为准"
+    },
+    {
+      "port": 39702,
+      "proto": "tcp",
+      "owner": "cortico-world-maibot listen",
+      "bind": "127.0.0.1 建议缺省",
+      "env": "是",
+      "evidence": "同上"
+    },
+    {
+      "port": 48911,
+      "proto": "tcp",
+      "owner": "neko main HTTP（reply_tail 宿主端）",
+      "bind": "loopback",
+      "env": "MAIN_SERVER_PORT",
+      "evidence": "r-neko §8"
+    },
+    {
+      "port": 48912,
+      "proto": "tcp",
+      "owner": "neko memory HTTP",
+      "bind": "loopback",
+      "env": "MEMORY_SERVER_PORT",
+      "evidence": "r-neko §8"
+    },
+    {
+      "port": 48913,
+      "proto": "tcp",
+      "owner": "neko monitor HTTP",
+      "bind": "0.0.0.0（MONITOR_HOST 默认，宿主面唯一非环回 HTTP）",
+      "env": "MONITOR_SERVER_PORT/MONITOR_HOST",
+      "evidence": "r-neko §8/C1-8 network.py:163"
+    },
+    {
+      "port": 48914,
+      "proto": "tcp",
+      "owner": "neko commenter HTTP",
+      "bind": "loopback",
+      "env": "COMMENTER_SERVER_PORT",
+      "evidence": "r-neko §8"
+    },
+    {
+      "port": 48915,
+      "proto": "tcp",
+      "owner": "neko tool HTTP",
+      "bind": "loopback",
+      "env": "TOOL_SERVER_PORT",
+      "evidence": "r-neko §8"
+    },
+    {
+      "port": 48916,
+      "proto": "tcp",
+      "owner": "neko user_plugin HTTP",
+      "bind": "loopback",
+      "env": "USER_PLUGIN_SERVER_PORT；占用时向后扫至 48965 并回写 NEKO_USER_PLUGIN_SERVER_PORT",
+      "evidence": "r-neko §8 user_plugin_server.py:150-151,180-184"
+    },
+    {
+      "port": 38865,
+      "proto": "tcp",
+      "owner": "neko message_plane RPC (ROUTER/DEALER)",
+      "bind": "127.0.0.1",
+      "env": "NEKO_MESSAGE_PLANE_ZMQ_RPC_ENDPOINT（旧名 NEKO_MESSAGE_PLANE_RPC）",
+      "evidence": "r-neko §8 settings.py:534"
+    },
+    {
+      "port": 38866,
+      "proto": "tcp",
+      "owner": "neko message_plane PUB",
+      "bind": "127.0.0.1",
+      "env": "NEKO_MESSAGE_PLANE_ZMQ_PUB_ENDPOINT",
+      "evidence": "r-neko §8 settings.py:566"
+    },
+    {
+      "port": 38867,
+      "proto": "tcp",
+      "owner": "neko message_plane INGEST (PULL, _auth)",
+      "bind": "127.0.0.1",
+      "env": "NEKO_MESSAGE_PLANE_ZMQ_INGEST_ENDPOINT",
+      "evidence": "r-neko §8 settings.py:613"
+    },
+    {
+      "port": 48961,
+      "proto": "tcp",
+      "owner": "neko agent bus SESSION_PUB",
+      "bind": "127.0.0.1",
+      "env": "NEKO_ZMQ_SESSION_PUB_PORT",
+      "evidence": "r-neko §8 agent_event_bus.py:59"
+    },
+    {
+      "port": 48962,
+      "proto": "tcp",
+      "owner": "neko agent bus AGENT_PUSH（push_message 出站经 ProactiveBridge）",
+      "bind": "127.0.0.1",
+      "env": "NEKO_ZMQ_AGENT_PUSH_PORT",
+      "evidence": "r-neko §8 :60；C1-8"
+    },
+    {
+      "port": 48963,
+      "proto": "tcp",
+      "owner": "neko agent bus ANALYZE_PUSH",
+      "bind": "127.0.0.1",
+      "env": "NEKO_ZMQ_ANALYZE_PUSH_PORT",
+      "evidence": "r-neko §8 :61"
+    },
+    {
+      "port": 39539,
+      "proto": "udp",
+      "owner": "neko VMC (OSC)",
+      "bind": "127.0.0.1",
+      "env": "无",
+      "evidence": "r-neko §8 vmc_sender.py:28"
+    },
+    {
+      "port": 8001,
+      "proto": "tcp",
+      "owner": "MaiBot WebUI",
+      "bind": "未实测（本轮未起宿主）",
+      "env": "—",
+      "evidence": "d-version-pin-matrix 转引级；装机指引标注宿主起后 doctor 实扫"
+    },
+    {
+      "port": 6185,
+      "proto": "tcp",
+      "owner": "AstrBot",
+      "bind": "—",
+      "env": "是",
+      "evidence": "m-effort-risk §6.2"
+    },
+    {
+      "port": 6199,
+      "proto": "tcp",
+      "owner": "AstrBot",
+      "bind": "—",
+      "env": "是",
+      "evidence": "m-effort-risk §6.2"
+    },
+    {
+      "port": 5140,
+      "proto": "tcp",
+      "owner": "AstrBot",
+      "bind": "—",
+      "env": "是",
+      "evidence": "m-effort-risk §6.2"
+    },
+    {
+      "port": 8080,
+      "proto": "tcp",
+      "owner": "NoneBot 缺省",
+      "bind": "127.0.0.1（~fastapi 须装 nonebot2[fastapi]）",
+      "env": "host/port",
+      "evidence": "r-nonebot-onebot §5.1"
+    },
+    {
+      "port": 5700,
+      "proto": "tcp",
+      "owner": "OneBot v11 规范缺省 HTTP",
+      "bind": "—",
+      "env": "—",
+      "evidence": "蓝图 §2.1"
+    },
+    {
+      "port": 6700,
+      "proto": "tcp",
+      "owner": "OneBot v11 规范缺省 WS",
+      "bind": "—",
+      "env": "—",
+      "evidence": "蓝图 §2.1"
+    },
+    {
+      "port": null,
+      "proto": "tcp",
+      "owner": "Koishi 稳定线 server 默认端口",
+      "bind": "UNVERIFIED（台账 §2）",
+      "env": "—",
+      "evidence": "install.md 让部署者自报"
+    }
+  ],
+  "caps": {
+    "cbp": { "frame_bytes": 524288, "text_bytes": 524288, "media_bytes": 8388608, "action": "reject" },
+    "neko": { "frame_bytes": 524061, "text_bytes": null, "media_bytes": 8388608, "action": "reject" },
+    "maibot": { "frame_bytes": null, "text_bytes": null, "media_bytes": null, "action": "host-ask" },
+    "astrbot": { "frame_bytes": null, "text_bytes": null, "media_bytes": 6291456, "action": "reject" },
+    "onebot": { "frame_bytes": null, "text_bytes": 4000, "media_bytes": null, "action": "degrade" },
+    "notes": {
+      "cbp_frame_bytes": "524288 = MESSAGE_PLANE_PAYLOAD_MAX_BYTES 缺省 512*1024（upstream/neko/plugin/settings.py:588 @52e973ed2；SECURITY-CBP.md:155 表行写作 plugin/server/settings.py，盘上目录实为 plugin/settings.py）",
+      "cbp_text_bytes": "524288 = spec/CBP-v1.json reply.text maxLength 结构护栏（CBP-v1.json:576；与 caps.cbp.frame_bytes 同源同值，CHANGELOG-CBP.md F13）",
+      "cbp_media_bytes": "8388608 = _IMAGE_MAX_BYTES 8*1024*1024（upstream/neko/plugin/core/zmq_transport.py:168 @52e973ed2，reports/r-neko.md:106）；宿主能力声明而非可送达承诺（CHANGELOG-CBP.md:483-487）",
+      "neko_frame_bytes": "524288 − 227 = 524061（settings.py:588 / core/context.py:247-252 @52e973ed2；折算口 context.py:1306；本地先拒已落码 cortico-bridge-neko/ingress.py:22-23，向量钉 spec/conformance.json:112）",
+      "neko_text_bytes": "[未核验] 宿主无独立文本上限，帧上限涵盖；SECURITY-CBP.md:174 定形 null",
+      "neko_media_bytes": "8388608 = 同 cbp 线（upstream/neko/plugin/core/zmq_transport.py:168 @52e973ed2）",
+      "maibot_frame_bytes": "[未核验] 本轮禁起宿主未测；null 不许当无限（SECURITY-CBP.md:275 §6-14）",
+      "maibot_text_bytes": "[未核验] 同上（SECURITY-CBP.md:275 §6-14）",
+      "maibot_media_bytes": "宿主每次在 files.upload 回包声明 max_bytes（upstream/maibot-plugin-sdk/maibot_sdk/capabilities/files.py:74-75 @f9984673d）；SDK 全树 grep MAX_*BYTES 本轮实测零命中，禁写死",
+      "astrbot_frame_bytes": "[未核验] 未测，禁连宿主与 IM（SECURITY-CBP.md:275 §6-14）",
+      "astrbot_text_bytes": "[未核验] 同上；本体只量到图片边长缺省 1280（repos/astrbot/astrbot/core/utils/media_utils.py:41 @133dd9f86，core/config/default.py:206）",
+      "astrbot_media_bytes": "沿用先例 MAX_IMAGE_B64=8MiB base64 串长折算解码 6MiB=6291456（repos/astrbot-plugin-bridge/bridge.py:50,79-80 @37c1e6ccd）；AstrBot 本体字节上限本轮未测",
+      "onebot_frame_bytes": "[未核验] 未测（SECURITY-CBP.md:275 §6-14）",
+      "onebot_text_bytes": "4000 = Cortico 侧自设 maxEventChars（packages/cortico-world-onebot-bridge/src/config.js:36），非平台实测；动作回执裁剪 20000 在同包 world.js:222，不在 caps 表",
+      "onebot_media_bytes": "[未核验] 平台侧上限禁连 IM 测不到（SECURITY-CBP.md:162），记 null",
+      "unit": "所有 media_bytes 均以解码后的原始字节计；发送方自己按 4*ceil(n/3) 折算 base64 长度并检查 frame_bytes（SECURITY-CBP.md:188）",
+      "unverified": "maibot/astrbot/onebot 的 frame_bytes 全为 null，属未测，不许当作无限；写任何数字进这三格都算造假（SECURITY-CBP.md:275 §6-14）"
+    }
+  },
+  "vocab": {
+    "neko": {
+      "sdk_all_len": 64,
+      "sdk_names": [
+        "neko_plugin",
+        "NekoPluginBase",
+        "Ok",
+        "Err",
+        "Result",
+        "plugin_entry",
+        "llm_tool",
+        "message",
+        "lifecycle",
+        "timer_interval",
+        "custom_event",
+        "hook",
+        "on_event",
+        "quick_action",
+        "PushMessageResult",
+        "EntryKind",
+        "PluginStore"
+      ],
+      "constants": {
+        "SDK_VERSION": "0.1.0",
+        "APP_VERSION": "0.9.1",
+        "SCHEMA_VERSION": "push_message.v2",
+        "DEPRECATION_REMOVAL_VERSION": "v0.9",
+        "PROTOCOL_VERSION": 1
+      },
+      "visibility": [
+        "chat",
+        "hud"
+      ],
+      "ai_behavior": [
+        "respond",
+        "read",
+        "blind"
+      ],
+      "rpc_ops": [
+        "ping",
+        "health",
+        "bus.list_topics",
+        "bus.publish",
+        "bus.get_recent",
+        "bus.query",
+        "bus.conversations.get",
+        "bus.conversations.get_message"
+      ],
+      "push_failure_reasons": [
+        "backpressure",
+        "payload_too_large",
+        "transport_error",
+        "transport_unavailable"
+      ],
+      "absent": [
+        {
+          "module": "plugin.core.context",
+          "attr": "PluginContext.finish",
+          "note": "C1-6：桥不得调 ctx.finish"
+        }
+      ]
+    },
+    "maibot": {
+      "sdk_all_len": 29,
+      "sdk_names": [
+        "MaiBotPlugin",
+        "MessageGateway",
+        "EventHandler",
+        "PluginContext",
+        "ConfigWidget",
+        "SendResult",
+        "API",
+        "Tool",
+        "Command",
+        "Action",
+        "HookHandler",
+        "LLMProvider",
+        "ReplyExtension",
+        "HomeCard",
+        "WorkflowStep"
+      ],
+      "capabilities": [
+        "api.call",
+        "api.get",
+        "api.list",
+        "api.replace_dynamic",
+        "chat.get_all_streams",
+        "chat.get_avatar",
+        "chat.get_group_streams",
+        "chat.get_private_streams",
+        "chat.get_stream_by_group_id",
+        "chat.get_stream_by_user_id",
+        "chat.open_session",
+        "component.disable",
+        "component.enable",
+        "component.get_all_plugins",
+        "component.get_plugin_config_schema",
+        "component.get_plugin_info",
+        "component.list_loaded_plugins",
+        "component.list_registered_plugins",
+        "component.load_plugin",
+        "component.reload_plugin",
+        "component.unload_plugin",
+        "config.get",
+        "config.get_all",
+        "config.get_plugin",
+        "database.count",
+        "database.delete",
+        "database.get",
+        "database.query",
+        "database.save",
+        "desktop_pet.animation_status",
+        "desktop_pet.get_skin",
+        "desktop_pet.hide",
+        "desktop_pet.list_animations",
+        "desktop_pet.play_animation",
+        "desktop_pet.play_event",
+        "desktop_pet.refresh_buttons",
+        "desktop_pet.say",
+        "desktop_pet.set_thinking",
+        "desktop_pet.show",
+        "desktop_pet.status",
+        "desktop_pet.stop_animation",
+        "emoji.delete",
+        "emoji.get_all",
+        "emoji.get_by_description",
+        "emoji.get_count",
+        "emoji.get_emotions",
+        "emoji.get_info",
+        "emoji.get_random",
+        "emoji.register",
+        "files.download",
+        "files.list",
+        "files.read_text",
+        "files.send",
+        "files.upload",
+        "frequency.get_adjust",
+        "frequency.get_current_talk_value",
+        "frequency.set_adjust",
+        "internal_chat.identity",
+        "internal_chat.send",
+        "knowledge.search",
+        "llm.embed",
+        "llm.generate",
+        "llm.generate_with_tools",
+        "llm.get_available_models",
+        "llm.transcribe_audio",
+        "maisaka.context.append",
+        "maisaka.context.resolve_image",
+        "maisaka.proactive.trigger",
+        "maisaka.reply.generate",
+        "market.get_detail",
+        "market.get_readme",
+        "market.search",
+        "message.build_readable",
+        "message.count_new",
+        "message.get_by_id",
+        "message.get_by_time",
+        "message.get_by_time_in_chat",
+        "message.get_recent",
+        "person.get_id",
+        "person.get_id_by_name",
+        "person.get_value",
+        "personality.get_current",
+        "personality.list",
+        "personality.switch",
+        "render.html2png",
+        "send.command",
+        "send.custom",
+        "send.emoji",
+        "send.forward",
+        "send.hybrid",
+        "send.image",
+        "send.text",
+        "statistics.local.message_trend",
+        "statistics.local.model_trend",
+        "statistics.local.models",
+        "statistics.local.online_time_trend",
+        "statistics.local.token_distribution",
+        "statistics.local.token_trend",
+        "statistics.local.tool_trend",
+        "tool.get_definitions",
+        "web.fetch",
+        "web.search",
+        "webui.claim_upload"
+      ],
+      "capabilities_len": 103,
+      "capability_proxies": [
+        "api",
+        "chat",
+        "component",
+        "config",
+        "db",
+        "desktop_pet",
+        "emoji",
+        "files",
+        "frequency",
+        "gateway",
+        "internal_chat",
+        "knowledge",
+        "llm",
+        "maisaka",
+        "market",
+        "message",
+        "person",
+        "personality",
+        "render",
+        "send",
+        "statistics",
+        "tool",
+        "web",
+        "webui"
+      ],
+      "raw_host_methods": [
+        "cap.call",
+        "host.route_message",
+        "host.update_message_gateway_state"
+      ],
+      "result_keys_len": 72,
+      "gateway_extra_caps": [
+        "gateway.route_message",
+        "gateway.update_state"
+      ],
+      "host_manifest": {
+        "validator": "ManifestValidator.SUPPORTED_MANIFEST_VERSIONS == [2]",
+        "missing_fields_on_min": 11
+      },
+      "absent": [
+        {
+          "module": "maibot_sdk",
+          "attr": "MaiMessages",
+          "note": "顶层无此名；必须 maibot_sdk.messages 子模块 import（r-maibot §2）"
+        }
+      ]
+    },
+    "astrbot": {
+      "component_type_len": 24,
+      "component_types_keys_len": 25,
+      "filter_all_len": 31,
+      "event_type_len": 16,
+      "register_all_len": 25,
+      "names": [
+        "Context",
+        "Star",
+        "StarTools",
+        "register",
+        "filter"
+      ],
+      "absent": [
+        {
+          "module": "astrbot.core.message.components",
+          "attr": "ComponentTypes.atall",
+          "note": "C1-5：25 键无 atall；at_all 必须特判"
+        },
+        {
+          "module": "astrbot.api",
+          "attr": "MessageSegment",
+          "note": "r-astrbot §4"
+        },
+        {
+          "module": "astrbot.api",
+          "attr": "Message",
+          "note": "r-astrbot §4"
+        }
+      ]
+    },
+    "nonebot": {
+      "v11_actions_len": 38,
+      "v11_actions": [
+        "send_private_msg",
+        "send_group_msg",
+        "send_msg",
+        "delete_msg",
+        "get_msg",
+        "get_forward_msg",
+        "send_like",
+        "set_group_kick",
+        "set_group_ban",
+        "set_group_anonymous_ban",
+        "set_group_whole_ban",
+        "set_group_admin",
+        "set_group_anonymous",
+        "set_group_card",
+        "set_group_name",
+        "set_group_leave",
+        "set_group_special_title",
+        "set_friend_add_request",
+        "set_group_add_request",
+        "get_login_info",
+        "get_stranger_info",
+        "get_friend_list",
+        "get_group_info",
+        "get_group_list",
+        "get_group_member_info",
+        "get_group_member_list",
+        "get_group_honor_info",
+        "get_cookies",
+        "get_csrf_token",
+        "get_credentials",
+        "get_record",
+        "get_image",
+        "can_send_image",
+        "can_send_record",
+        "get_status",
+        "get_version_info",
+        "set_restart",
+        "clean_cache"
+      ],
+      "v11_event_leaves": [
+        "PrivateMessageEvent",
+        "GroupMessageEvent",
+        "GroupUploadNoticeEvent",
+        "GroupAdminNoticeEvent",
+        "GroupDecreaseNoticeEvent",
+        "GroupIncreaseNoticeEvent",
+        "GroupBanNoticeEvent",
+        "FriendAddNoticeEvent",
+        "GroupRecallNoticeEvent",
+        "FriendRecallNoticeEvent",
+        "PokeNotifyEvent",
+        "LuckyKingNotifyEvent",
+        "HonorNotifyEvent",
+        "FriendRequestEvent",
+        "GroupRequestEvent",
+        "LifecycleMetaEvent",
+        "HeartbeatMetaEvent"
+      ],
+      "note": "38 动作在 wheel 里只存在于 bot.pyi（运行时 Bot 类无这些属性，本轮实测）；事件叶子在 event 模块运行时可查。"
+    },
+    "koishi": {
+      "satori_methods_len": 37,
+      "forbidden": {
+        "cordis_v3": [
+          "ctx.off",
+          "ctx.use"
+        ],
+        "cordis_rc": [
+          "z",
+          "Schema",
+          "ctx.using",
+          "ctx.alias",
+          "ctx.collect",
+          "ScopeStatus",
+          "ForkScope",
+          "MainScope"
+        ],
+        "satori": [
+          "Session.prototype.send"
+        ],
+        "note": "C1-4/C1-14：rc 顶层 z/Schema 断链；v3 无 ctx.use；off 两线皆 undefined"
+      }
+    },
+    "cbp": {
+      "caps": [
+        "images",
+        "buttons",
+        "audio_out",
+        "files",
+        "notices",
+        "reply_tail",
+        "self_echo",
+        "tools",
+        "history_backfill"
+      ],
+      "tool_tags": [
+        "read",
+        "write",
+        "speak",
+        "act",
+        "flow",
+        "snapshot"
+      ],
+      "frame_types": [
+        "hello",
+        "ready",
+        "msg",
+        "notice",
+        "ack",
+        "call",
+        "reply",
+        "event",
+        "tick",
+        "catalog"
+      ],
+      "note": "types.ts:202 @836238311 六值逐字（G6）；帧表钉 _BUILD-PLAN §3.1；caps 九名逐字照 spec/CBP-v1.json $defs.caps description（c1 §5.5），由 gen_pins.py 从该件生成并校验"
+    }
+  }
+}

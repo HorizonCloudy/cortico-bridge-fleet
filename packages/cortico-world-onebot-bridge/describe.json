@@ -1,0 +1,141 @@
+{
+  "tools": [
+    {
+      "name": "onebot_call",
+      "description": "Call any OneBot v11 action. Read-only actions run immediately. Write actions run only on a turn with an identified inbound sender (a turn without an inbound message is refused, 60004) and follow writePolicy (default: confirm=true required). Credential actions get_cookies/get_csrf_token/get_credentials are not served (10002).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "v11 action name, e.g. send_group_msg or get_group_info."
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The action params object."
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Set true to execute a write action under the confirm policy."
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "description": "Optional call timeout in milliseconds."
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "tags": [
+        "act"
+      ],
+      "summary": {
+        "zh": "调用 v11 action；只读直接执行，写动作要求本轮有实证发起方（缺入站记录回 60004）并按策略需 confirm=true；凭证动作不进桥（10002）。",
+        "en": "Call a v11 action; reads run immediately, writes need an identified inbound sender this turn (60004 without one) and follow the write policy; credential actions are not served (10002)."
+      }
+    },
+    {
+      "name": "onebot_actions",
+      "description": "Look up the OneBot v11 action catalog. No args lists categories; query searches name/summary; name returns one entry.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search action name or summary."
+          },
+          "name": {
+            "type": "string",
+            "description": "Return the catalog entry for this action."
+          }
+        }
+      },
+      "tags": [
+        "read"
+      ],
+      "summary": {
+        "zh": "查 OneBot v11 动作目录、分类与覆盖数。",
+        "en": "Look up the OneBot v11 action catalog, categories and coverage."
+      }
+    },
+    {
+      "name": "onebot_events",
+      "description": "Read archived OneBot events by kind/time. kind supports * globs (e.g. notice/*).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "Event kind or glob: message/group, notice/group_recall, meta_event/*."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Max events (1-100, default 30)."
+          },
+          "raw": {
+            "type": "boolean",
+            "description": "Include meta.raw. Default true."
+          }
+        }
+      },
+      "tags": [
+        "read"
+      ],
+      "summary": {
+        "zh": "按类型和时间查已归档的 OneBot 事件。",
+        "en": "Read archived OneBot events by kind and time."
+      }
+    },
+    {
+      "name": "onebot_status",
+      "description": "OneBot connection, account, v11 coverage and current write policy.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "tags": [
+        "read"
+      ],
+      "summary": {
+        "zh": "看 OneBot 连接、账号、v11 覆盖面与写策略。",
+        "en": "Show OneBot connection, account, v11 coverage and write policy."
+      }
+    }
+  ],
+  "events": [
+    {
+      "type": "onebot-bridge.message",
+      "description": {
+        "zh": "一条 QQ 消息；正文是一行可读文本，meta.raw 是原始 v11 事件。",
+        "en": "A QQ message; text is one readable line, meta.raw is the original v11 event."
+      },
+      "trigger": "debounce"
+    },
+    {
+      "type": "onebot-bridge.notice",
+      "description": {
+        "zh": "OneBot notice / meta_event；正文是一行摘要，meta.raw 是原始事件。",
+        "en": "An OneBot notice or meta_event; text is a compact line, meta.raw is the original event."
+      },
+      "trigger": "debounce"
+    },
+    {
+      "type": "onebot-bridge.request",
+      "description": {
+        "zh": "OneBot request（加好友 / 加群）；meta.raw 是原始事件。",
+        "en": "An OneBot request (friend / group); meta.raw is the original event."
+      },
+      "trigger": "debounce"
+    },
+    {
+      "type": "onebot-bridge.connection",
+      "description": {
+        "zh": "OneBot 连接建立或断开。",
+        "en": "OneBot connected or disconnected."
+      },
+      "trigger": "debounce"
+    }
+  ]
+}

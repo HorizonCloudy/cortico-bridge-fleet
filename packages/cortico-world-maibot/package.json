@@ -1,0 +1,51 @@
+{
+  "name": "cortico-world-maibot",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cortico-side MaiBot world package: CBP v1 frames over WS listen, normalization against the measured MaiBot MessageDict/SDK model, tools() shell. / Cortico 侧 MaiBot world 包：接 CBP v1 帧，归一化表按 r-maibot 实测模型字段。",
+  "license": "MIT",
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "maibot",
+    "bridge",
+    "cbp"
+  ],
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "main": "./src/definition.ts",
+  "cortico": {
+    "kind": "world",
+    "api": 6,
+    "displayName": "MaiBot · QQ (CBP)",
+    "tags": [
+      "apps",
+      "external-setup",
+      "unofficial-api"
+    ],
+    "describe": "describe.json"
+  },
+  "files": [
+    "src",
+    "describe.json",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/",
+    "gate": "tsx tests/drymount-gate.mts"
+  },
+  "dependencies": {
+    "cortico-bridge-core": "file:../cortico-bridge-core",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "cortico": "0.2.15",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2"
+  }
+}

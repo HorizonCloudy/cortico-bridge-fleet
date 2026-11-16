@@ -1,0 +1,36 @@
+{
+  "name": "cortico-bridge-core",
+  "version": "0.1.0",
+  "description": "CBP v1 bridge kernel: frames, segments, envelopes, negotiation, errors, dedup, driver, correlation, pins. No framework knowledge.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "main": "./dist/src/index.js",
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./frames": "./dist/src/frames.js",
+    "./segment": "./dist/src/segment.js",
+    "./envelope": "./dist/src/envelope.js",
+    "./dedup": "./dist/src/dedup.js",
+    "./driver": "./dist/src/driver.js",
+    "./negotiate": "./dist/src/negotiate.js",
+    "./errors": "./dist/src/errors.js",
+    "./correlate": "./dist/src/correlate.js",
+    "./pins": "./dist/src/pins.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node --test dist/tests/"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "name": "cortico-world-neko",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cortico-side N.E.K.O world package: CBP v1 over dual-role WebSocket (listen 39701 / dial out), frame codec and driver reused from cortico-bridge-core. N.E.K.O 侧 Cortico world 包。",
+  "license": "MIT",
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "neko",
+    "bridge",
+    "cbp"
+  ],
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "main": "./src/definition.ts",
+  "cortico": {
+    "kind": "world",
+    "api": 6,
+    "displayName": "N.E.K.O · 猫娘 (CBP)",
+    "tags": [
+      "apps",
+      "external-setup",
+      "unofficial-api"
+    ],
+    "describe": "describe.json"
+  },
+  "files": [
+    "src",
+    "describe.json",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/",
+    "describe": "npx tsx tests/drymount-gate.mts --regen"
+  },
+  "dependencies": {
+    "cortico-bridge-core": "file:../cortico-bridge-core",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "cortico": "0.2.15",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2"
+  }
+}

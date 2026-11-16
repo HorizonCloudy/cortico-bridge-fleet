@@ -1,0 +1,49 @@
+{
+  "name": "cortico-world-astrbot-bridge",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "AstrBot bridge world for Cortico: CBP frame negotiation over the absorbed private-frame v1 protocol. / 收编自 cortico-world-astrbot 的 Cortico 侧桥包，带 CBP 帧协商位。",
+  "license": "MIT",
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "astrbot",
+    "bridge",
+    "cbp"
+  ],
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "main": "./src/definition.ts",
+  "cortico": {
+    "kind": "world",
+    "api": 6,
+    "displayName": "AstrBot · QQ (CBP)",
+    "tags": [
+      "apps",
+      "external-setup",
+      "unofficial-api"
+    ],
+    "describe": "describe.json"
+  },
+  "files": [
+    "src",
+    "describe.json",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "cortico": "0.2.15",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2"
+  }
+}

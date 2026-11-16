@@ -1,0 +1,701 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HorizonCloudy/cortico-bridge-fleet/spec/CBP-v1.json",
+  "title": "CBP-v1 frame",
+  "description": "Cortico Bridge Protocol v1 single JSON frame over one WebSocket text message. Ten frame types share the common header {v,t,id,ts}. Table generalized from cortico-world-astrbot private frame v1 (repos/world-astrbot@4725feee6 src/driver.ts:522-676, parseFrame rejects null/array/scalar at driver.ts:704-717) per _COMPAT-BLUEPRINT.md G8; fields marked final are drafted by _BUILD-PLAN.md 3.1 (2026-11-15). Each of the ten frame shapes closes its own object with additionalProperties:false; unknown keys make a frame invalid and the kernel must swallow bad frames without throwing (_BUILD-PLAN.md 2.2 frames.ts, blueprint 2.1). The passthrough fields $defs/any (raw, event data), seg.data, and call.args are intentionally open (F18).",
+  "type": "object",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/hello"
+    },
+    {
+      "$ref": "#/$defs/ready"
+    },
+    {
+      "$ref": "#/$defs/msg"
+    },
+    {
+      "$ref": "#/$defs/notice"
+    },
+    {
+      "$ref": "#/$defs/ack"
+    },
+    {
+      "$ref": "#/$defs/call"
+    },
+    {
+      "$ref": "#/$defs/reply"
+    },
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/tick"
+    },
+    {
+      "$ref": "#/$defs/catalog"
+    }
+  ],
+  "$defs": {
+    "any": {
+      "description": "Arbitrary JSON value, including null. Used for raw passthrough and event data; content is framework-defined and kept verbatim (blueprint 2.1 meta.raw rule). No type keyword means accept-everything."
+    },
+    "frameId": {
+      "description": "Frame id, 1..64 chars (_BUILD-PLAN.md 3.1 header id:string(1..64)).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "ts": {
+      "description": "float64 Unix seconds. Cortico side converts only via new Date(ts*1000).toISOString() (_BUILD-PLAN.md 3.1).",
+      "type": "number",
+      "minimum": 0
+    },
+    "conv": {
+      "description": "Conversation key, opaque to CBP. neko=conversation_id; maibot=stream_id; astrbot=UMO platform:message_type:session_id (message_session.py:18-20 @133dd9f86); v11 session_id form e.g. group_5_4 (r-nonebot-onebot 2.4).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "caps": {
+      "description": "Capability name list. Vocabulary = images,buttons,audio_out,files,notices,reply_tail,self_echo,tools,history_backfill (c1-adapters-per-framework 5.5). Unknown names are ignored in the intersection, not an error.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "uniqueItems": true
+    },
+    "toolName": {
+      "description": "Tool or action name. neko llm_tool pins ^[A-Za-z0-9_.\\-]{1,64}$ (llm_tool.py:52-57 @52e973ed2, blueprint 2.2); CBP keeps the length bound and lets each host enforce its own pattern.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "toolAnn": {
+      "description": "Tool announcement entry. risk six values are Cortico ToolTag verbatim (repos/cortico@836238311 src/core/types.ts:202, _BUILD-PLAN.md 3.1 G6).",
+      "type": "object",
+      "required": [
+        "name",
+        "risk",
+        "confirm_required"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/toolName"
+        },
+        "risk": {
+          "enum": [
+            "read",
+            "write",
+            "speak",
+            "act",
+            "flow",
+            "snapshot"
+          ]
+        },
+        "confirm_required": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      },
+      "additionalProperties": false
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/toolAnn"
+      }
+    },
+    "seg": {
+      "description": "Message segment, OneBot v11 shape {type,data} with every value a string (upstream/onebot-11@d4456ee70 message/array.md:23, d-onebot-spec 3.2). at param name is qq (segment.md:167); at_all maps to {type:'at',data:{qq:'all'}} (_BUILD-PLAN.md 3.1). Kernel whitelist plus unknown-type [type] fallback live in segment.ts (C1-16 sole implementation point).",
+      "type": "object",
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "data": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/seg"
+      }
+    },
+    "sender": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 256
+        }
+      },
+      "additionalProperties": false
+    },
+    "self": {
+      "description": "Account declaration carried by hello and ready (F1/F2, SECURITY-CBP 2). proven:true only from a host-evidenced source (v11 get_login_info user_id, AstrBot event.get_self_id(), MaiBot internal_chat.identity); any configured, operator-typed, or peer-declared value stays proven:false. An empty id is legal and must honestly say proven:false — 「no self」 may not be faked by omission (SECURITY-CBP 2 rule 1). Keys close at three.",
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "proven"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "proven": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "anon": {
+      "description": "Anonymity state of the operator behind a call, verbatim from SECURITY-CBP 1 rule 2: member.id equals self id yields self; an anonymous carrier in the payload yields anonymous; no host-proven sender yields unknown; otherwise identified.",
+      "enum": [
+        "identified",
+        "anonymous",
+        "self",
+        "unknown"
+      ]
+    },
+    "actor": {
+      "description": "Operator identity of a call (F3, SECURITY-CBP 1). The bridge fills it from its own inbound record keyed by turn; the wire copy is reconciliation material only — on disagreement the host record wins and the bridge reports degraded reason actor-mismatch. platform is the host's self-named platform string verbatim (AstrBot UMO first segment, MaiBot MessageDict.platform, v11 normalized message_type, neko bus source). Four keys closed; call.args stays open by contrast.",
+      "type": "object",
+      "required": [
+        "platform",
+        "conv",
+        "member",
+        "anon"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "conv": {
+          "$ref": "#/$defs/conv"
+        },
+        "member": {
+          "$ref": "#/$defs/sender"
+        },
+        "anon": {
+          "$ref": "#/$defs/anon"
+        }
+      },
+      "additionalProperties": false
+    },
+    "agent": {
+      "description": "Announcing endpoint identity. 60001 disconnect text must carry both sides name/version/sha (_BUILD-PLAN.md 2.2 negotiate.ts; blueprint 2.1).",
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "sha"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "sha": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "blob": {
+      "description": "Inbound-reply media body, base64 only. No URL or file handle crosses CBP (U7 in blueprint 6.1); neko external URL images are rejected on the host side (r-neko 5).",
+      "type": "object",
+      "required": [
+        "mime",
+        "b64"
+      ],
+      "properties": {
+        "mime": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "b64": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "description": "Error object inside reply frames. Codes: v12 baseline 0/10001..10007/20001/20002 (upstream/onebot@d533f0fca specs/action-response.md:43-99, d-onebot-spec 6.1) plus bridge band 60001..60008 (c1 5.4). Passthrough host codes are allowed by integer range.",
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1024
+        }
+      },
+      "additionalProperties": false
+    },
+    "hello": {
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "agent",
+        "v_support",
+        "caps",
+        "tools",
+        "self"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "hello"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "agent": {
+          "$ref": "#/$defs/agent"
+        },
+        "v_support": {
+          "type": "array",
+          "items": {
+            "const": 1
+          },
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "caps": {
+          "$ref": "#/$defs/caps"
+        },
+        "tools": {
+          "$ref": "#/$defs/tools"
+        },
+        "self": {
+          "$ref": "#/$defs/self"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ready": {
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "caps",
+        "tools",
+        "self"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "ready"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "caps": {
+          "$ref": "#/$defs/caps"
+        },
+        "tools": {
+          "$ref": "#/$defs/tools"
+        },
+        "self": {
+          "$ref": "#/$defs/self"
+        }
+      },
+      "additionalProperties": false
+    },
+    "msg": {
+      "description": "Inbound or bridged conversation message. kind drives the Cortico-side trigger tier: mention/direct to flush, group/other to debounce (_BUILD-PLAN.md 3.2 table). Self echo is detected world-side by sender.id == the self id declared by the bridge's hello/ready with proven:true (F1/F2).",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "conv",
+        "sender",
+        "kind",
+        "segments",
+        "raw"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "msg"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "conv": {
+          "$ref": "#/$defs/conv"
+        },
+        "sender": {
+          "$ref": "#/$defs/sender"
+        },
+        "kind": {
+          "enum": [
+            "mention",
+            "direct",
+            "group",
+            "other"
+          ]
+        },
+        "segments": {
+          "$ref": "#/$defs/segments"
+        },
+        "raw": {
+          "$ref": "#/$defs/any"
+        }
+      },
+      "additionalProperties": false
+    },
+    "notice": {
+      "description": "Non-message occurrence. Piggyback tier only (blueprint 2.1 envelope rule). kind is the host event discriminator leaf, e.g. group_increase, poke, friend_add.",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "kind",
+        "raw"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "notice"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "conv": {
+          "$ref": "#/$defs/conv"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "raw": {
+          "$ref": "#/$defs/any"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ack": {
+      "description": "Receipt that a msg/notice frame was taken by the peer. rid targets the acknowledged frame id.",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "rid"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "ack"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "rid": {
+          "$ref": "#/$defs/frameId"
+        }
+      },
+      "additionalProperties": false
+    },
+    "call": {
+      "description": "Tool invocation. rid correlates the future reply. tool must be announced in ready/catalog tools[] (_BUILD-PLAN.md 3.2 peer_call rule; unlisted name gives 60002). turn and actor are required (F3): the bridge fills actor from its inbound record, a self-reported wire actor is reconciliation material only, and a turn with no record is refused with 60004. args stays an open object (SECURITY-CBP 1 rule 4).",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "rid",
+        "tool",
+        "args",
+        "turn",
+        "actor"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "call"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "rid": {
+          "$ref": "#/$defs/frameId"
+        },
+        "tool": {
+          "$ref": "#/$defs/toolName"
+        },
+        "args": {
+          "type": "object"
+        },
+        "turn": {
+          "$ref": "#/$defs/frameId",
+          "description": "id of the inbound msg frame that started this turn (SECURITY-CBP 1 rule 2); the bridge resolves identity from its own record keyed by it."
+        },
+        "actor": {
+          "$ref": "#/$defs/actor"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reply": {
+      "description": "Answer to a call, correlated by rid. ok:false must carry error; ok:true may carry text and/or blobs. 30000ms correlation timeout is translated kernel-side to 60007, never silently (_BUILD-PLAN.md 3.2).",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "rid",
+        "ok"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "reply"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "rid": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 524288
+        },
+        "blobs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/blob"
+          }
+        },
+        "error": {
+          "$ref": "#/$defs/error"
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "ok": {
+            "const": false
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/$defs/error"
+          }
+        }
+      }
+    },
+    "event": {
+      "description": "Bridge state push. name connection maps to <w>.connection flush tier, degraded to <w>.degraded (_BUILD-PLAN.md 3.2 table).",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "name",
+        "data"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "event"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "name": {
+          "enum": [
+            "connection",
+            "degraded"
+          ]
+        },
+        "data": {
+          "$ref": "#/$defs/any"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tick": {
+      "description": "Application heartbeat. Driver layer only, never reaches host (_BUILD-PLAN.md 3.2 last table row; ping 20s / idle 120s params in driver.ts).",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "tick"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        }
+      },
+      "additionalProperties": false
+    },
+    "catalog": {
+      "description": "Full current tool directory for drift reconciliation (blueprint G5, graft from c3 7). tools[] replaces the last known directory; empty array means no announced tools.",
+      "type": "object",
+      "required": [
+        "v",
+        "t",
+        "id",
+        "ts",
+        "tools"
+      ],
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "t": {
+          "const": "catalog"
+        },
+        "id": {
+          "$ref": "#/$defs/frameId"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "tools": {
+          "$ref": "#/$defs/tools"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

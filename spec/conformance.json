@@ -1,0 +1,2009 @@
+{
+  "spec": "CBP-v1-conformance",
+  "schema_ref": "CBP-v1.json",
+  "status": "draft for contract review",
+  "date": "2026-11-15",
+  "scope_note": "Golden vectors per _BUILD-PLAN.md 2.1 row spec/conformance.json: frame to envelope/error/degrade byte expectations; v11 38 actions + 17 event leaves; neko downlink 11 words + SDK notify 7 words; RpcEnvelope five-key constraint samples. Every byte expectation is a literal wire string that a checker must equal exactly.",
+  "evidence": {
+    "ledger": "reports/00-ACQUISITION.md sha9 base (2026-11-15)",
+    "docs": [
+      "_BUILD-PLAN.md 3.1 final frame table / 3.2 mapping tables / 3.4 line contracts / 5-T3 legacy hello",
+      "_COMPAT-BLUEPRINT.md 2.1 kernel bullets / 4.1 spec rows / G5 G6 G8",
+      "d-onebot-spec.md 1 (v11 events) / 2 (38 actions) / 3 (envelopes, segments) / 6.1 (retcode table)",
+      "d-bridge-priorart.md 2.2 render.js table / 3.1 private frame table / 3.4 parseFrame and backoff / 7 hard rules",
+      "r-nonebot-onebot.md 2.1-2.5 (leaves, actions, segments, required fields) / 3.1-3.4 (wiring)",
+      "r-koishi.md 2.3 (action capture bytes) / 4.1-4.7 (mappings, echo, x-client-role) / 7-1 (self channelId)",
+      "r-neko.md 5 (push axes, 524288, 227 headroom, reason four) / 7 (RpcEnvelope, downlink, notify words)"
+    ],
+    "repos": {
+      "upstream/neko": "52e973ed2",
+      "upstream/maibot": "478f671e6",
+      "upstream/maibot-plugin-sdk": "f9984673d",
+      "upstream/onebot-11": "d4456ee70",
+      "upstream/onebot": "d533f0fca",
+      "repos/cortico": "836238311",
+      "repos/astrbot": "133dd9f86",
+      "repos/koishi": "97d5c3957",
+      "repos/nonebot2": "2450b67a1",
+      "repos/adapter-onebot": "8e0d1145a",
+      "repos/koishi-plugin-adapter-onebot": "4109eb95c",
+      "repos/world-astrbot": "4725feee6",
+      "repos/onebot": "2e91b7fb1"
+    }
+  },
+  "canonical": {
+    "encoding": "UTF-8, no BOM",
+    "wire": "wire = JSON.stringify(frame) with no whitespace and with object key order exactly as listed in each vector; checker recomputes and must equal expect byte for byte",
+    "frame_key_order": "v,t,id,ts then per-type payload keys in the order given by CBP-v1.json properties",
+    "envelope_key_order": "type,ts,source,origin,contextDelivery?,text,senderKey?,meta; PushOptions order trigger,deliver",
+    "ts_rule": "frame ts is float64 Unix seconds; envelope ts string = new Date(ts*1000).toISOString() only (_BUILD-PLAN.md 3.1); vectors use timestamps exactly representable to ms",
+    "string_values": "every segment data value is a string on the wire (onebot-11 message/array.md:23 @d4456ee70); numeric host params must be coerced by the framework-side bridge before the frame is sent"
+  },
+  "rules": {
+    "frame_types": [
+      "hello",
+      "ready",
+      "msg",
+      "notice",
+      "ack",
+      "call",
+      "reply",
+      "event",
+      "tick",
+      "catalog"
+    ],
+    "caps_vocabulary": [
+      "images",
+      "buttons",
+      "audio_out",
+      "files",
+      "notices",
+      "reply_tail",
+      "self_echo",
+      "tools",
+      "history_backfill"
+    ],
+    "risk_values": [
+      "read",
+      "write",
+      "speak",
+      "act",
+      "flow",
+      "snapshot"
+    ],
+    "error_codes": {
+      "0": "ok",
+      "10001": "Bad Request",
+      "10002": "Unsupported Action",
+      "10003": "Bad Param",
+      "10004": "Unsupported Param",
+      "10005": "Unsupported Segment",
+      "10006": "Bad Segment Data",
+      "10007": "Unsupported Segment Data",
+      "20001": "Bad Handler",
+      "20002": "Internal Handler Error",
+      "60001": "version_mismatch",
+      "60002": "capability_unavailable",
+      "60003": "payload_too_large",
+      "60004": "unknown_session",
+      "60005": "door_closed",
+      "60006": "peer_unreachable",
+      "60007": "send_uncertain",
+      "60008": "degraded"
+    },
+    "error_code_provenance": "v12 baseline verbatim upstream/onebot@d533f0fca specs/action-response.md:43-99 (d-onebot-spec 6.1); 6xxxx band verbatim c1-adapters-per-framework 5.4; 4xxxx/5xxxx unused",
+    "message_format": "message = mnemonic for the code; when a native host error is translated the message becomes mnemonic + \": \" + native detail kept verbatim",
+    "render_table": {
+      "provenance": "cortico-world-onebot@2e91b7fb1 src/render.js:32-85 whitelist with [type] default (d-bridge-priorart 2.2); kernel segment.ts is the sole implementation point (C1-16)",
+      "text": "data.text verbatim",
+      "at": "qq==all then @全体成员 else @ + qq (name lookup not available from segment data alone)",
+      "reply": "[回复 #id]",
+      "image": "[图片]",
+      "face": "[表情]",
+      "record": "[语音]",
+      "video": "[视频]",
+      "file": "[文件]",
+      "forward": "[转发]",
+      "node": "[节点]",
+      "json": "[卡片]",
+      "xml": "[卡片]",
+      "poke": "[戳一戳]",
+      "location": "[位置]",
+      "music": "[音乐]",
+      "share": "[分享]",
+      "contact": "[名片]",
+      "anonymous": "[匿名]",
+      "shake": "[抖动]",
+      "rps": "[猜拳]",
+      "dice": "[骰子]",
+      "unknown": "literal bracket wrap of seg.type, so seg.type pdf renders [pdf]",
+      "button_to_v11_url": "label + \": \" + url (aiocqhttp_message_event.py:87-110 @133dd9f86)",
+      "button_to_v11_callback": "literal prefix [Button unavailable] then space then label (same source, verbatim literal)"
+    },
+    "trigger_ladder": {
+      "mention": "flush",
+      "direct": "flush",
+      "group": "debounce",
+      "other": "debounce",
+      "notice": "piggyback",
+      "self_echo": "debounce with deliver:false and contextDelivery archive-only",
+      "event_connection": "flush origin internal",
+      "event_degraded": "flush origin internal",
+      "provenance": "_BUILD-PLAN.md 3.2 table; types.ts:612-635 @836238311"
+    },
+    "self_echo_rule": "world-side detection: msg.sender.id equals the account self id learned at bridge setup; then event <w>.message.self (d-bridge-priorart 7 rule 4; blueprint 3.2)",
+    "meta_keys": [
+      "conv",
+      "sender",
+      "kind",
+      "platformMsgId",
+      "raw"
+    ],
+    "platform_msg_id": "String(raw.message_id) when raw.message_id present else null; raw kept verbatim always",
+    "notice_envelope": "text = notice.kind; meta = {conv if present, kind, raw}",
+    "connection_envelope": "text and meta.kind = \"connection/\" + data.state, state one of ready|closed (onebot precedent world.js:999-1034)",
+    "degraded_envelope": "text and meta.kind = \"degraded/\" + data.cause; meta = {kind, cause, detail}",
+    "neko_payload_gate": "local reject when translated payload bytes > 524288 - 227 = 524061 (r-neko 5 MESSAGE_PLANE_PAYLOAD_MAX_BYTES and _HOST_ENVELOPE_HEADROOM_BYTES; _BUILD-PLAN.md 2.4 ingress row)",
+    "correlation_timeout_ms": 30000,
+    "egress_default": false,
+    "rate_default_per_min": 20,
+    "dedup_max_entries": 200
+  },
+  "frames": {
+    "note": "one valid vector per frame type; expect.wire must equal JSON.stringify(frame) exactly",
+    "vectors": [
+      {
+        "name": "hello_full",
+        "frame": {
+          "v": 1,
+          "t": "hello",
+          "id": "cv-hello",
+          "ts": 1763136000.25,
+          "agent": {
+            "name": "cortico-bridge-neko",
+            "version": "0.1.0",
+            "sha": "123456789"
+          },
+          "v_support": [
+            1
+          ],
+          "caps": [
+            "images",
+            "notices",
+            "tools"
+          ],
+          "tools": [
+            {
+              "name": "neko_send_message",
+              "risk": "write",
+              "confirm_required": true,
+              "description": "send via neko push_message v2"
+            },
+            {
+              "name": "neko_status",
+              "risk": "read",
+              "confirm_required": false
+            }
+          ],
+          "self": {
+            "id": "2838634085",
+            "name": "Cortico",
+            "proven": true
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"hello\",\"id\":\"cv-hello\",\"ts\":1763136000.25,\"agent\":{\"name\":\"cortico-bridge-neko\",\"version\":\"0.1.0\",\"sha\":\"123456789\"},\"v_support\":[1],\"caps\":[\"images\",\"notices\",\"tools\"],\"tools\":[{\"name\":\"neko_send_message\",\"risk\":\"write\",\"confirm_required\":true,\"description\":\"send via neko push_message v2\"},{\"name\":\"neko_status\",\"risk\":\"read\",\"confirm_required\":false}],\"self\":{\"id\":\"2838634085\",\"name\":\"Cortico\",\"proven\":true}}"
+        }
+      },
+      {
+        "name": "ready_minimal_caps_empty_tools",
+        "frame": {
+          "v": 1,
+          "t": "ready",
+          "id": "cv-ready",
+          "ts": 1763136000.5,
+          "caps": [
+            "notices",
+            "tools"
+          ],
+          "tools": [
+            {
+              "name": "neko_send",
+              "risk": "write",
+              "confirm_required": true
+            }
+          ],
+          "self": {
+            "id": "",
+            "name": "",
+            "proven": false
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"ready\",\"id\":\"cv-ready\",\"ts\":1763136000.5,\"caps\":[\"notices\",\"tools\"],\"tools\":[{\"name\":\"neko_send\",\"risk\":\"write\",\"confirm_required\":true}],\"self\":{\"id\":\"\",\"name\":\"\",\"proven\":false}}"
+        }
+      },
+      {
+        "name": "msg_group_at_text",
+        "frame": {
+          "v": 1,
+          "t": "msg",
+          "id": "cv-msg",
+          "ts": 1763136060.125,
+          "conv": "group_5_4",
+          "sender": {
+            "id": "2002",
+            "name": "nick"
+          },
+          "kind": "group",
+          "segments": [
+            {
+              "type": "at",
+              "data": {
+                "qq": "10001"
+              }
+            },
+            {
+              "type": "text",
+              "data": {
+                "text": " hi"
+              }
+            }
+          ],
+          "raw": {
+            "post_type": "message",
+            "message_type": "group",
+            "group_id": 5,
+            "user_id": 4,
+            "message_id": 1024,
+            "font": "f",
+            "raw_message": "[CQ:at,qq=10001] hi"
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"msg\",\"id\":\"cv-msg\",\"ts\":1763136060.125,\"conv\":\"group_5_4\",\"sender\":{\"id\":\"2002\",\"name\":\"nick\"},\"kind\":\"group\",\"segments\":[{\"type\":\"at\",\"data\":{\"qq\":\"10001\"}},{\"type\":\"text\",\"data\":{\"text\":\" hi\"}}],\"raw\":{\"post_type\":\"message\",\"message_type\":\"group\",\"group_id\":5,\"user_id\":4,\"message_id\":1024,\"font\":\"f\",\"raw_message\":\"[CQ:at,qq=10001] hi\"}}"
+        }
+      },
+      {
+        "name": "notice_group_increase",
+        "frame": {
+          "v": 1,
+          "t": "notice",
+          "id": "cv-notice",
+          "ts": 1763136060.125,
+          "conv": "5",
+          "kind": "group_increase",
+          "raw": {
+            "post_type": "notice",
+            "notice_type": "group_increase",
+            "group_id": 5,
+            "user_id": 9,
+            "sub_type": "approve"
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"notice\",\"id\":\"cv-notice\",\"ts\":1763136060.125,\"conv\":\"5\",\"kind\":\"group_increase\",\"raw\":{\"post_type\":\"notice\",\"notice_type\":\"group_increase\",\"group_id\":5,\"user_id\":9,\"sub_type\":\"approve\"}}"
+        }
+      },
+      {
+        "name": "ack_of_msg",
+        "frame": {
+          "v": 1,
+          "t": "ack",
+          "id": "cv-ack",
+          "ts": 1763136060.125,
+          "rid": "cv-msg"
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"ack\",\"id\":\"cv-ack\",\"ts\":1763136060.125,\"rid\":\"cv-msg\"}"
+        }
+      },
+      {
+        "name": "call_send",
+        "frame": {
+          "v": 1,
+          "t": "call",
+          "id": "cv-call",
+          "ts": 1763136120.75,
+          "rid": "cv-call-1",
+          "tool": "neko_send",
+          "args": {
+            "conv": "group_5_4",
+            "text": "hello"
+          },
+          "turn": "cv-msg",
+          "actor": {
+            "platform": "onebot",
+            "conv": "group_5_4",
+            "member": {
+              "id": "2002",
+              "name": "nick"
+            },
+            "anon": "identified"
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"call\",\"id\":\"cv-call\",\"ts\":1763136120.75,\"rid\":\"cv-call-1\",\"tool\":\"neko_send\",\"args\":{\"conv\":\"group_5_4\",\"text\":\"hello\"},\"turn\":\"cv-msg\",\"actor\":{\"platform\":\"onebot\",\"conv\":\"group_5_4\",\"member\":{\"id\":\"2002\",\"name\":\"nick\"},\"anon\":\"identified\"}}"
+        }
+      },
+      {
+        "name": "reply_ok_with_blob",
+        "frame": {
+          "v": 1,
+          "t": "reply",
+          "id": "cv-reply",
+          "ts": 1763136120.75,
+          "rid": "cv-call-1",
+          "ok": true,
+          "text": "sent",
+          "blobs": [
+            {
+              "mime": "image/jpeg",
+              "name": "p.jpg",
+              "b64": "QUJD"
+            }
+          ]
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"reply\",\"id\":\"cv-reply\",\"ts\":1763136120.75,\"rid\":\"cv-call-1\",\"ok\":true,\"text\":\"sent\",\"blobs\":[{\"mime\":\"image/jpeg\",\"name\":\"p.jpg\",\"b64\":\"QUJD\"}]}"
+        }
+      },
+      {
+        "name": "event_connection_ready",
+        "frame": {
+          "v": 1,
+          "t": "event",
+          "id": "cv-event",
+          "ts": 1763136120.75,
+          "name": "connection",
+          "data": {
+            "state": "ready"
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"event\",\"id\":\"cv-event\",\"ts\":1763136120.75,\"name\":\"connection\",\"data\":{\"state\":\"ready\"}}"
+        }
+      },
+      {
+        "name": "tick_header_only",
+        "frame": {
+          "v": 1,
+          "t": "tick",
+          "id": "cv-tick",
+          "ts": 1763136120.75
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"tick\",\"id\":\"cv-tick\",\"ts\":1763136120.75}"
+        }
+      },
+      {
+        "name": "catalog_drift_replay",
+        "frame": {
+          "v": 1,
+          "t": "catalog",
+          "id": "cv-cat",
+          "ts": 1763136120.75,
+          "tools": [
+            {
+              "name": "neko_send",
+              "risk": "write",
+              "confirm_required": true
+            },
+            {
+              "name": "neko_status",
+              "risk": "read",
+              "confirm_required": false
+            }
+          ]
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"catalog\",\"id\":\"cv-cat\",\"ts\":1763136120.75,\"tools\":[{\"name\":\"neko_send\",\"risk\":\"write\",\"confirm_required\":true},{\"name\":\"neko_status\",\"risk\":\"read\",\"confirm_required\":false}]}",
+          "note": "catalog replaces the announced directory wholesale; ready and catalog share the tools[] shape (G5, c1 5.5)"
+        }
+      },
+      {
+        "name": "call_full_actor_bound",
+        "frame": {
+          "v": 1,
+          "t": "call",
+          "id": "cv-call-2",
+          "ts": 1763136121.5,
+          "rid": "cv-call-2-rid",
+          "tool": "set_group_kick",
+          "args": {
+            "group_id": 5,
+            "user_id": 4,
+            "confirm": true
+          },
+          "turn": "cv-msg",
+          "actor": {
+            "platform": "onebot",
+            "conv": "group_5_4",
+            "member": {
+              "id": "2002",
+              "name": "nick"
+            },
+            "anon": "identified"
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"call\",\"id\":\"cv-call-2\",\"ts\":1763136121.5,\"rid\":\"cv-call-2-rid\",\"tool\":\"set_group_kick\",\"args\":{\"group_id\":5,\"user_id\":4,\"confirm\":true},\"turn\":\"cv-msg\",\"actor\":{\"platform\":\"onebot\",\"conv\":\"group_5_4\",\"member\":{\"id\":\"2002\",\"name\":\"nick\"},\"anon\":\"identified\"}}"
+        },
+        "note": "F3 定形 call；actor 四键闭合而 args 开放同时成立(配套 F18)"
+      },
+      {
+        "name": "hello_proven_false",
+        "frame": {
+          "v": 1,
+          "t": "hello",
+          "id": "cv-hello-2",
+          "ts": 1763136001.0,
+          "agent": {
+            "name": "cortico-bridge-neko",
+            "version": "0.1.0",
+            "sha": "123456789"
+          },
+          "self": {
+            "id": "",
+            "name": "",
+            "proven": false
+          },
+          "v_support": [
+            1
+          ],
+          "caps": [
+            "images",
+            "notices"
+          ],
+          "tools": []
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"hello\",\"id\":\"cv-hello-2\",\"ts\":1763136001.0,\"agent\":{\"name\":\"cortico-bridge-neko\",\"version\":\"0.1.0\",\"sha\":\"123456789\"},\"self\":{\"id\":\"\",\"name\":\"\",\"proven\":false},\"v_support\":[1],\"caps\":[\"images\",\"notices\"],\"tools\":[]}"
+        },
+        "note": "诚实申报路径:proven:false 且不带 self_echo cap 合法(SECURITY-CBP:72,77)"
+      },
+      {
+        "name": "ready_repush_proven_true",
+        "frame": {
+          "v": 1,
+          "t": "ready",
+          "id": "cv-ready-2",
+          "ts": 1763136002.0,
+          "caps": [
+            "notices",
+            "tools",
+            "self_echo"
+          ],
+          "tools": [],
+          "self": {
+            "id": "2838634085",
+            "name": "Cortico",
+            "proven": true
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"ready\",\"id\":\"cv-ready-2\",\"ts\":1763136002.0,\"caps\":[\"notices\",\"tools\",\"self_echo\"],\"tools\":[],\"self\":{\"id\":\"2838634085\",\"name\":\"Cortico\",\"proven\":true}}"
+        },
+        "note": "proven 由假变真的同连接重推允许(SECURITY-CBP:75);帧级合法,churn 判定在 self.id"
+      },
+      {
+        "name": "call_args_extra_key_open",
+        "frame": {
+          "v": 1,
+          "t": "call",
+          "id": "cv-call-3",
+          "ts": 1763136122.0,
+          "rid": "cv-call-3-rid",
+          "tool": "x",
+          "args": {
+            "anything": 1,
+            "nested": {
+              "ok": true
+            }
+          },
+          "turn": "cv-msg",
+          "actor": {
+            "platform": "onebot",
+            "conv": "group_5_4",
+            "member": {
+              "id": "2002",
+              "name": "nick"
+            },
+            "anon": "identified"
+          }
+        },
+        "expect": {
+          "valid": true,
+          "wire": "{\"v\":1,\"t\":\"call\",\"id\":\"cv-call-3\",\"ts\":1763136122.0,\"rid\":\"cv-call-3-rid\",\"tool\":\"x\",\"args\":{\"anything\":1,\"nested\":{\"ok\":true}},\"turn\":\"cv-msg\",\"actor\":{\"platform\":\"onebot\",\"conv\":\"group_5_4\",\"member\":{\"id\":\"2002\",\"name\":\"nick\"},\"anon\":\"identified\"}}"
+        },
+        "note": "F3: 闭合的是 actor,开的是旧透传位 args——与 actor_extra_key_closed 成对锁死(SECURITY-CBP:56, F18)"
+      }
+    ]
+  },
+  "frame_negatives": {
+    "note": "input is fed as the exact wire string; parseFrame must swallow all of these without throwing (driver.ts:704-717 @4725feee6 pattern); validate against CBP-v1.json must return false",
+    "vectors": [
+      {
+        "name": "null_scalar",
+        "input": "null",
+        "expect_valid": false,
+        "reason": "top-level object required"
+      },
+      {
+        "name": "empty_array",
+        "input": "[]",
+        "expect_valid": false,
+        "reason": "array rejected by parseFrame"
+      },
+      {
+        "name": "number_scalar",
+        "input": "42",
+        "expect_valid": false,
+        "reason": "scalar rejected"
+      },
+      {
+        "name": "string_scalar",
+        "input": "\"hello\"",
+        "expect_valid": false,
+        "reason": "scalar rejected"
+      },
+      {
+        "name": "true_scalar",
+        "input": "true",
+        "expect_valid": false,
+        "reason": "scalar rejected"
+      },
+      {
+        "name": "missing_ts",
+        "input": "{\"v\":1,\"t\":\"tick\",\"id\":\"n1\"}",
+        "expect_valid": false,
+        "reason": "header ts required"
+      },
+      {
+        "name": "missing_id",
+        "input": "{\"v\":1,\"t\":\"tick\",\"ts\":1763136000.5}",
+        "expect_valid": false,
+        "reason": "header id required"
+      },
+      {
+        "name": "wrong_v",
+        "input": "{\"v\":2,\"t\":\"tick\",\"id\":\"n2\",\"ts\":1763136000.5}",
+        "expect_valid": false,
+        "reason": "v const 1; kernel side this rejection is the 60001 version gate (errors x_version_gate)"
+      },
+      {
+        "name": "unknown_t",
+        "input": "{\"v\":1,\"t\":\"goodbye\",\"id\":\"n3\",\"ts\":1763136000.5}",
+        "expect_valid": false,
+        "reason": "no such frame type"
+      },
+      {
+        "name": "extra_top_key",
+        "input": "{\"v\":1,\"t\":\"tick\",\"id\":\"n4\",\"ts\":1763136000.5,\"x\":1}",
+        "expect_valid": false,
+        "reason": "additionalProperties false"
+      },
+      {
+        "name": "extra_sender_key_role",
+        "input": "{\"v\":1,\"t\":\"msg\",\"id\":\"n5\",\"ts\":1763136000.5,\"conv\":\"c\",\"sender\":{\"id\":\"1\",\"name\":\"a\",\"role\":\"owner\"},\"kind\":\"group\",\"segments\":[],\"raw\":{}}",
+        "expect_valid": false,
+        "reason": "sender closed to id,name (c1 draft role dropped by _BUILD-PLAN.md 3.1 final)"
+      },
+      {
+        "name": "segment_value_numeric",
+        "input": "{\"v\":1,\"t\":\"msg\",\"id\":\"n6\",\"ts\":1763136000.5,\"conv\":\"c\",\"sender\":{\"id\":\"1\",\"name\":\"a\"},\"kind\":\"group\",\"segments\":[{\"type\":\"at\",\"data\":{\"qq\":123}}],\"raw\":{}}",
+        "expect_valid": false,
+        "reason": "segment data values must be strings (array.md:23)"
+      },
+      {
+        "name": "risk_invalid",
+        "input": "{\"v\":1,\"t\":\"hello\",\"id\":\"n7\",\"ts\":1763136000.5,\"agent\":{\"name\":\"a\",\"version\":\"0.1.0\",\"sha\":\"s\"},\"v_support\":[1],\"caps\":[],\"tools\":[{\"name\":\"t\",\"risk\":\"exec\",\"confirm_required\":false}]}",
+        "expect_valid": false,
+        "reason": "risk enum is ToolTag six values (types.ts:202 @836238311)"
+      },
+      {
+        "name": "id_empty",
+        "input": "{\"v\":1,\"t\":\"tick\",\"id\":\"\",\"ts\":1763136000.5}",
+        "expect_valid": false,
+        "reason": "id minLength 1"
+      },
+      {
+        "name": "id_65_chars",
+        "input": "{\"v\":1,\"t\":\"tick\",\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"ts\":1763136000.5}",
+        "expect_valid": false,
+        "reason": "id maxLength 64; the id string here is 65 a"
+      },
+      {
+        "name": "notice_missing_kind",
+        "input": "{\"v\":1,\"t\":\"notice\",\"id\":\"n8\",\"ts\":1763136000.5,\"raw\":{}}",
+        "expect_valid": false,
+        "reason": "kind required"
+      },
+      {
+        "name": "call_args_array",
+        "input": "{\"v\":1,\"t\":\"call\",\"id\":\"n9\",\"ts\":1763136000.5,\"rid\":\"r\",\"tool\":\"t\",\"args\":[]}",
+        "expect_valid": false,
+        "reason": "args must be an object"
+      },
+      {
+        "name": "reply_false_without_error",
+        "input": "{\"v\":1,\"t\":\"reply\",\"id\":\"n10\",\"ts\":1763136000.5,\"rid\":\"r\",\"ok\":false}",
+        "expect_valid": false,
+        "reason": "ok:false requires error (if/then)"
+      },
+      {
+        "name": "reply_c1_retcode_shape",
+        "input": "{\"v\":1,\"t\":\"reply\",\"id\":\"n11\",\"ts\":1763136000.5,\"rid\":\"r\",\"ok\":false,\"retcode\":1404,\"text\":null}",
+        "expect_valid": false,
+        "reason": "c1 draft retcode/data shape not in final CBP-v1; final is ok+error (blueprint 2.1, _BUILD-PLAN.md 3.1)"
+      },
+      {
+        "name": "legacy_private_hello",
+        "input": "{\"t\":\"hello\",\"token\":\"tk\",\"name\":\"Cortico\",\"capabilities\":{\"images\":true}}",
+        "expect_valid": false,
+        "reason": "old 4725feee6 frame never validates as CBP; negotiate.ts compat-reads it as legacy v1 (errors x_legacy_compat_read, _BUILD-PLAN.md 5-T3)"
+      },
+      {
+        "name": "call_missing_actor",
+        "input": "{\"v\":1,\"t\":\"call\",\"id\":\"cv-call-3\",\"ts\":1763136122.0,\"rid\":\"cv-call-3-rid\",\"tool\":\"x\",\"args\":{},\"turn\":\"cv-msg\"}",
+        "expect_valid": false,
+        "reason": "F3: actor required; 结构性缺位是坏帧(吞帧+framesBad),SECURITY-CBP:40,56"
+      },
+      {
+        "name": "call_missing_turn",
+        "input": "{\"v\":1,\"t\":\"call\",\"id\":\"cv-call-3\",\"ts\":1763136122.0,\"rid\":\"cv-call-3-rid\",\"tool\":\"x\",\"args\":{},\"actor\":{\"platform\":\"onebot\",\"conv\":\"group_5_4\",\"member\":{\"id\":\"2002\",\"name\":\"nick\"},\"anon\":\"identified\"}}",
+        "expect_valid": false,
+        "reason": "F3: turn required; 缺 turn 是坏帧,不是 60004——60004 只给有 turn 查无记录的语义缺位"
+      },
+      {
+        "name": "actor_extra_key_closed",
+        "input": "{\"v\":1,\"t\":\"call\",\"id\":\"cv-call-3\",\"ts\":1763136122.0,\"rid\":\"cv-call-3-rid\",\"tool\":\"x\",\"args\":{},\"turn\":\"cv-msg\",\"actor\":{\"platform\":\"onebot\",\"conv\":\"group_5_4\",\"member\":{\"id\":\"2002\",\"name\":\"nick\",\"role\":\"admin\"},\"anon\":\"identified\"}}",
+        "expect_valid": false,
+        "reason": "F3 四键闭合:member 复用 $defs/sender,多一键 invalid——对端自报身份结构被拒(配套正向 call_args_extra_key_open 的开放 args)"
+      },
+      {
+        "name": "hello_missing_self",
+        "input": "{\"v\":1,\"t\":\"hello\",\"id\":\"cv-hello-3\",\"ts\":1763136003.0,\"agent\":{\"name\":\"p\",\"version\":\"0.1.0\",\"sha\":\"s\"},\"v_support\":[1],\"caps\":[],\"tools\":[]}",
+        "expect_valid": false,
+        "reason": "F1: hello 必填 self;缺 self 是结构坏帧走吞帧,SECURITY-CBP:96"
+      },
+      {
+        "name": "ready_self_extra_key",
+        "input": "{\"v\":1,\"t\":\"ready\",\"id\":\"cv-ready-3\",\"ts\":1763136004.0,\"caps\":[],\"tools\":[],\"self\":{\"id\":\"x\",\"name\":\"n\",\"proven\":true,\"source\":\"get_login_info\"}}",
+        "expect_valid": false,
+        "reason": "F1/F2: self 三键闭合;自证字段不得加塞——proven 之外无证明位"
+      }
+    ]
+  },
+  "segments": {
+    "wire_types20": [
+      "text",
+      "face",
+      "image",
+      "record",
+      "video",
+      "at",
+      "rps",
+      "dice",
+      "shake",
+      "poke",
+      "anonymous",
+      "share",
+      "contact",
+      "location",
+      "music",
+      "reply",
+      "forward",
+      "node",
+      "json",
+      "xml"
+    ],
+    "wire_types20_source": "r-nonebot-onebot 2.3 runtime call of 24 factories = 20 wire types, set-equal to onebot-11 message/segment.md 20 types (d-onebot-spec 3.2); contact_user/contact_group/music_custom/node_custom are param sugar",
+    "kernel_whitelist17": [
+      "text",
+      "at",
+      "reply",
+      "image",
+      "record",
+      "video",
+      "file",
+      "face",
+      "forward",
+      "node",
+      "json",
+      "xml",
+      "location",
+      "music",
+      "poke",
+      "markdown",
+      "button"
+    ],
+    "kernel_whitelist17_source": "c1-adapters-per-framework 5.2; file/markdown/button have no v11 wire type and degrade per host (button row below); unknown type falls back to [type] without swallowing the message (blueprint 2.1, C1-16)",
+    "vectors": [
+      {
+        "name": "cq_string_parse_roundtrip",
+        "source": "r-nonebot-onebot 2.3 verbatim capture",
+        "input_cq": "[CQ:at,qq=123] hi [CQ:image,file=abc]",
+        "expected_segments": [
+          {
+            "type": "at",
+            "data": {
+              "qq": "123"
+            }
+          },
+          {
+            "type": "text",
+            "data": {
+              "text": " hi "
+            }
+          },
+          {
+            "type": "image",
+            "data": {
+              "file": "abc"
+            }
+          }
+        ],
+        "expected_wire": "[{\"type\":\"at\",\"data\":{\"qq\":\"123\"}},{\"type\":\"text\",\"data\":{\"text\":\" hi \"}},{\"type\":\"image\",\"data\":{\"file\":\"abc\"}}]",
+        "output_cq": "[CQ:at,qq=123] hi [CQ:image,file=abc]"
+      },
+      {
+        "name": "at_all_special_case",
+        "source": "_BUILD-PLAN.md 3.1: at_all -> {type:'at',data:{qq:'all'}}; C1-5 r-astrbot 4: ComponentTypes has no atall key, AtAll enum member missing, special-case like aiocqhttp",
+        "framework_input": "AstrBot At() all / neko @全体成员 semantics",
+        "cbp_segment": {
+          "type": "at",
+          "data": {
+            "qq": "all"
+          }
+        },
+        "cbp_wire": "{\"type\":\"at\",\"data\":{\"qq\":\"all\"}}",
+        "rendered_text": "@全体成员"
+      },
+      {
+        "name": "numeric_param_coercion",
+        "source": "d-onebot-spec 3.2 (event ids number, segment params string: the v11 internal split, segment.md:156-167)",
+        "framework_input": {
+          "qq": 123,
+          "duration": 60
+        },
+        "cbp_segment_data": {
+          "qq": "123",
+          "duration": "60"
+        },
+        "cbp_wire": "{\"type\":\"at\",\"data\":{\"qq\":\"123\"}}"
+      },
+      {
+        "name": "unknown_segment_bracket_fallback",
+        "source": "C1-16: neko SDK does not validate part type, pdf passes through (r-neko 5); kernel segment.ts renders [type] and emits degraded, never swallows",
+        "cbp_segment": {
+          "type": "pdf",
+          "data": {
+            "file": "a.pdf"
+          }
+        },
+        "rendered_text": "[pdf]",
+        "degraded_cause": "unknown_segment"
+      },
+      {
+        "name": "button_url_to_v11_text",
+        "source": "aiocqhttp_message_event.py:87-110 @133dd9f86 URL button becomes label: url (c1 5.2, m-onebot-route)",
+        "cbp_segment": {
+          "type": "button",
+          "data": {
+            "label": "Open",
+            "url": "https://example.com/x"
+          }
+        },
+        "v11_rendered_text": "Open: https://example.com/x"
+      },
+      {
+        "name": "button_callback_to_v11_text",
+        "source": "same capture, literal fallback text",
+        "cbp_segment": {
+          "type": "button",
+          "data": {
+            "label": "Confirm"
+          }
+        },
+        "v11_rendered_text": "[Button unavailable] Confirm"
+      },
+      {
+        "name": "reply_segment_id",
+        "source": "d-onebot-spec 3.2 segment.md reply id; c1 whitelist reply(id)",
+        "cbp_segment": {
+          "type": "reply",
+          "data": {
+            "id": "1024"
+          }
+        },
+        "cbp_wire": "{\"type\":\"reply\",\"data\":{\"id\":\"1024\"}}",
+        "rendered_text": "[回复 #1024]"
+      },
+      {
+        "name": "json_segment_param_name",
+        "source": "d-onebot-spec 3.2: xml/json param fixed as data (segment.md:510,529)",
+        "cbp_segment": {
+          "type": "json",
+          "data": {
+            "data": "{\"desc\":\"x\"}"
+          }
+        },
+        "cbp_wire": "{\"type\":\"json\",\"data\":{\"data\":\"{\\\"desc\\\":\\\"x\\\"}\"}}",
+        "rendered_text": "[卡片]"
+      },
+      {
+        "name": "music_subtypes",
+        "source": "d-onebot-spec 3.2 segment.md: music type in qq/163/xm/custom",
+        "cbp_segment": {
+          "type": "music",
+          "data": {
+            "type": "qq",
+            "id": "1"
+          }
+        }
+      },
+      {
+        "name": "image_send_form_base64",
+        "source": "d-onebot-spec 3.2 segment.md:84-97: send-direction file supports name/URL/base64://; U7 keeps handles off the bridge, blobs only on reply frames",
+        "cbp_segment": {
+          "type": "image",
+          "data": {
+            "file": "base64://QUJD"
+          }
+        },
+        "note": "base64 form is v11-leg only inside the framework side; CBP msg segments carry it as an opaque string"
+      },
+      {
+        "name": "forward_and_node",
+        "source": "d-onebot-spec 3.2: forward receive id only then get_forward_msg; node params user_id/nickname/content (segment.md:427,489-491)",
+        "cbp_segments": [
+          {
+            "type": "forward",
+            "data": {
+              "id": "123"
+            }
+          },
+          {
+            "type": "node",
+            "data": {
+              "user_id": "1",
+              "nickname": "n",
+              "content": "[CQ:text,data=hi]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "envelope": {
+    "note": "frame -> Cortico host.pushEvent(EventEnvelope, PushOptions) byte expectations; pinned world sample neko with self_id 10001",
+    "context": {
+      "world": "neko",
+      "self_id": "10001"
+    },
+    "vectors": [
+      {
+        "name": "mention_flush",
+        "frame": {
+          "v": 1,
+          "t": "msg",
+          "id": "ev-m1",
+          "ts": 1763136060.125,
+          "conv": "group_5_4",
+          "sender": {
+            "id": "2002",
+            "name": "nick"
+          },
+          "kind": "mention",
+          "segments": [
+            {
+              "type": "text",
+              "data": {
+                "text": "hi"
+              }
+            }
+          ],
+          "raw": {
+            "post_type": "message",
+            "message_type": "group",
+            "group_id": 5,
+            "user_id": 4,
+            "message_id": 1024
+          }
+        },
+        "expect": {
+          "event": {
+            "type": "neko.message",
+            "ts": "2025-11-14T16:01:00.125Z",
+            "source": "neko",
+            "origin": "external",
+            "text": "hi",
+            "senderKey": "2002",
+            "meta": {
+              "conv": "group_5_4",
+              "sender": {
+                "id": "2002",
+                "name": "nick"
+              },
+              "kind": "mention",
+              "platformMsgId": "1024",
+              "raw": {
+                "post_type": "message",
+                "message_type": "group",
+                "group_id": 5,
+                "user_id": 4,
+                "message_id": 1024
+              }
+            }
+          },
+          "event_wire": "{\"type\":\"neko.message\",\"ts\":\"2025-11-14T16:01:00.125Z\",\"source\":\"neko\",\"origin\":\"external\",\"text\":\"hi\",\"senderKey\":\"2002\",\"meta\":{\"conv\":\"group_5_4\",\"sender\":{\"id\":\"2002\",\"name\":\"nick\"},\"kind\":\"mention\",\"platformMsgId\":\"1024\",\"raw\":{\"post_type\":\"message\",\"message_type\":\"group\",\"group_id\":5,\"user_id\":4,\"message_id\":1024}}}",
+          "opts": {
+            "trigger": "flush"
+          },
+          "opts_wire": "{\"trigger\":\"flush\"}"
+        }
+      },
+      {
+        "name": "direct_flush",
+        "frame": {
+          "v": 1,
+          "t": "msg",
+          "id": "ev-m2",
+          "ts": 1763136000.5,
+          "conv": "4",
+          "sender": {
+            "id": "3003",
+            "name": "pal"
+          },
+          "kind": "direct",
+          "segments": [
+            {
+              "type": "text",
+              "data": {
+                "text": "yo"
+              }
+            }
+          ],
+          "raw": {
+            "post_type": "message",
+            "message_type": "private",
+            "user_id": 3003,
+            "message_id": 1025
+          }
+        },
+        "expect": {
+          "event": {
+            "type": "neko.message",
+            "ts": "2025-11-14T16:00:00.500Z",
+            "source": "neko",
+            "origin": "external",
+            "text": "yo",
+            "senderKey": "3003",
+            "meta": {
+              "conv": "4",
+              "sender": {
+                "id": "3003",
+                "name": "pal"
+              },
+              "kind": "direct",
+              "platformMsgId": "1025",
+              "raw": {
+                "post_type": "message",
+                "message_type": "private",
+                "user_id": 3003,
+                "message_id": 1025
+              }
+            }
+          },
+          "event_wire": "{\"type\":\"neko.message\",\"ts\":\"2025-11-14T16:00:00.500Z\",\"source\":\"neko\",\"origin\":\"external\",\"text\":\"yo\",\"senderKey\":\"3003\",\"meta\":{\"conv\":\"4\",\"sender\":{\"id\":\"3003\",\"name\":\"pal\"},\"kind\":\"direct\",\"platformMsgId\":\"1025\",\"raw\":{\"post_type\":\"message\",\"message_type\":\"private\",\"user_id\":3003,\"message_id\":1025}}}",
+          "opts": {
+            "trigger": "flush"
+          },
+          "opts_wire": "{\"trigger\":\"flush\"}"
+        }
+      },
+      {
+        "name": "group_debounce_rendered",
+        "frame": {
+          "v": 1,
+          "t": "msg",
+          "id": "ev-m3",
+          "ts": 1763136120.75,
+          "conv": "group_5_4",
+          "sender": {
+            "id": "2002",
+            "name": "nick"
+          },
+          "kind": "group",
+          "segments": [
+            {
+              "type": "at",
+              "data": {
+                "qq": "10001"
+              }
+            },
+            {
+              "type": "text",
+              "data": {
+                "text": " hi"
+              }
+            }
+          ],
+          "raw": {
+            "post_type": "message",
+            "message_type": "group",
+            "group_id": 5,
+            "user_id": 4,
+            "message_id": 1026
+          }
+        },
+        "expect": {
+          "event": {
+            "type": "neko.message",
+            "ts": "2025-11-14T16:02:00.750Z",
+            "source": "neko",
+            "origin": "external",
+            "text": "@10001 hi",
+            "senderKey": "2002",
+            "meta": {
+              "conv": "group_5_4",
+              "sender": {
+                "id": "2002",
+                "name": "nick"
+              },
+              "kind": "group",
+              "platformMsgId": "1026",
+              "raw": {
+                "post_type": "message",
+                "message_type": "group",
+                "group_id": 5,
+                "user_id": 4,
+                "message_id": 1026
+              }
+            }
+          },
+          "event_wire": "{\"type\":\"neko.message\",\"ts\":\"2025-11-14T16:02:00.750Z\",\"source\":\"neko\",\"origin\":\"external\",\"text\":\"@10001 hi\",\"senderKey\":\"2002\",\"meta\":{\"conv\":\"group_5_4\",\"sender\":{\"id\":\"2002\",\"name\":\"nick\"},\"kind\":\"group\",\"platformMsgId\":\"1026\",\"raw\":{\"post_type\":\"message\",\"message_type\":\"group\",\"group_id\":5,\"user_id\":4,\"message_id\":1026}}}",
+          "opts": {
+            "trigger": "debounce"
+          },
+          "opts_wire": "{\"trigger\":\"debounce\"}"
+        }
+      },
+      {
+        "name": "self_echo_archive_only",
+        "source": "_BUILD-PLAN.md 3.2 row msg self echo; d-bridge-priorart 7 rule 4",
+        "frame": {
+          "v": 1,
+          "t": "msg",
+          "id": "ev-m4",
+          "ts": 1763136000,
+          "conv": "12",
+          "sender": {
+            "id": "10001",
+            "name": "self"
+          },
+          "kind": "direct",
+          "segments": [
+            {
+              "type": "text",
+              "data": {
+                "text": "echo"
+              }
+            }
+          ],
+          "raw": {
+            "post_type": "message_sent",
+            "message_type": "private",
+            "user_id": 10001,
+            "message_id": 1027
+          }
+        },
+        "expect": {
+          "event": {
+            "type": "neko.message.self",
+            "ts": "2025-11-14T16:00:00.000Z",
+            "source": "neko",
+            "origin": "external",
+            "contextDelivery": "archive-only",
+            "text": "echo",
+            "senderKey": "10001",
+            "meta": {
+              "conv": "12",
+              "sender": {
+                "id": "10001",
+                "name": "self"
+              },
+              "kind": "direct",
+              "platformMsgId": "1027",
+              "raw": {
+                "post_type": "message_sent",
+                "message_type": "private",
+                "user_id": 10001,
+                "message_id": 1027
+              }
+            }
+          },
+          "event_wire": "{\"type\":\"neko.message.self\",\"ts\":\"2025-11-14T16:00:00.000Z\",\"source\":\"neko\",\"origin\":\"external\",\"contextDelivery\":\"archive-only\",\"text\":\"echo\",\"senderKey\":\"10001\",\"meta\":{\"conv\":\"12\",\"sender\":{\"id\":\"10001\",\"name\":\"self\"},\"kind\":\"direct\",\"platformMsgId\":\"1027\",\"raw\":{\"post_type\":\"message_sent\",\"message_type\":\"private\",\"user_id\":10001,\"message_id\":1027}}}",
+          "opts": {
+            "trigger": "debounce",
+            "deliver": false
+          },
+          "opts_wire": "{\"trigger\":\"debounce\",\"deliver\":false}"
+        }
+      },
+      {
+        "name": "notice_piggyback",
+        "frame": {
+          "v": 1,
+          "t": "notice",
+          "id": "ev-n1",
+          "ts": 1763136000.5,
+          "conv": "5",
+          "kind": "group_increase",
+          "raw": {
+            "post_type": "notice",
+            "notice_type": "group_increase",
+            "group_id": 5,
+            "user_id": 9
+          }
+        },
+        "expect": {
+          "event": {
+            "type": "neko.notice",
+            "ts": "2025-11-14T16:00:00.500Z",
+            "source": "neko",
+            "origin": "external",
+            "text": "group_increase",
+            "meta": {
+              "conv": "5",
+              "kind": "group_increase",
+              "raw": {
+                "post_type": "notice",
+                "notice_type": "group_increase",
+                "group_id": 5,
+                "user_id": 9
+              }
+            }
+          },
+          "event_wire": "{\"type\":\"neko.notice\",\"ts\":\"2025-11-14T16:00:00.500Z\",\"source\":\"neko\",\"origin\":\"external\",\"text\":\"group_increase\",\"meta\":{\"conv\":\"5\",\"kind\":\"group_increase\",\"raw\":{\"post_type\":\"notice\",\"notice_type\":\"group_increase\",\"group_id\":5,\"user_id\":9}}}",
+          "opts": {
+            "trigger": "piggyback"
+          },
+          "opts_wire": "{\"trigger\":\"piggyback\"}"
+        }
+      },
+      {
+        "name": "connection_internal_flush",
+        "frame": {
+          "v": 1,
+          "t": "event",
+          "id": "ev-e1",
+          "ts": 1763136000,
+          "name": "connection",
+          "data": {
+            "state": "ready"
+          }
+        },
+        "expect": {
+          "event": {
+            "type": "neko.connection",
+            "ts": "2025-11-14T16:00:00.000Z",
+            "source": "neko",
+            "origin": "internal",
+            "text": "connection/ready",
+            "meta": {
+              "kind": "connection/ready",
+              "data": {
+                "state": "ready"
+              }
+            }
+          },
+          "event_wire": "{\"type\":\"neko.connection\",\"ts\":\"2025-11-14T16:00:00.000Z\",\"source\":\"neko\",\"origin\":\"internal\",\"text\":\"connection/ready\",\"meta\":{\"kind\":\"connection/ready\",\"data\":{\"state\":\"ready\"}}}",
+          "opts": {
+            "trigger": "flush"
+          },
+          "opts_wire": "{\"trigger\":\"flush\"}"
+        }
+      },
+      {
+        "name": "degraded_internal_flush",
+        "frame": {
+          "v": 1,
+          "t": "event",
+          "id": "ev-e2",
+          "ts": 1763136000,
+          "name": "degraded",
+          "data": {
+            "cause": "unknown_segment",
+            "detail": "pdf"
+          }
+        },
+        "expect": {
+          "event": {
+            "type": "neko.degraded",
+            "ts": "2025-11-14T16:00:00.000Z",
+            "source": "neko",
+            "origin": "internal",
+            "text": "degraded/unknown_segment",
+            "meta": {
+              "kind": "degraded/unknown_segment",
+              "cause": "unknown_segment",
+              "detail": "pdf"
+            }
+          },
+          "event_wire": "{\"type\":\"neko.degraded\",\"ts\":\"2025-11-14T16:00:00.000Z\",\"source\":\"neko\",\"origin\":\"internal\",\"text\":\"degraded/unknown_segment\",\"meta\":{\"kind\":\"degraded/unknown_segment\",\"cause\":\"unknown_segment\",\"detail\":\"pdf\"}}",
+          "opts": {
+            "trigger": "flush"
+          },
+          "opts_wire": "{\"trigger\":\"flush\"}"
+        }
+      }
+    ]
+  },
+  "errors": {
+    "note": "source condition -> CBP reply.error / tool outcome bytes. error_wire must equal JSON.stringify(error). Codes must be present in rules.error_codes (or documented passthrough).",
+    "vectors": [
+      {
+        "name": "x_version_gate",
+        "source": "blueprint 2.1 negotiate bullet; _BUILD-PLAN.md 2.2 negotiate row",
+        "input": {
+          "peer_wire": "{\"v\":2,\"t\":\"hello\",\"id\":\"n\",\"ts\":1763136000,\"agent\":{\"name\":\"cortico-world-neko\",\"version\":\"0.1.0\",\"sha\":\"987654321\"},\"v_support\":[1],\"caps\":[],\"tools\":[]}"
+        },
+        "local_agent": {
+          "name": "cortico-bridge-neko",
+          "version": "0.1.0",
+          "sha": "123456789"
+        },
+        "expect": {
+          "disconnect": true,
+          "error": {
+            "code": 60001,
+            "message": "version_mismatch: cortico-bridge-neko/0.1.0@123456789 vs peer v=2 not in [1]"
+          },
+          "error_wire": "{\"code\":60001,\"message\":\"version_mismatch: cortico-bridge-neko/0.1.0@123456789 vs peer v=2 not in [1]\"}",
+          "note": "text carries both sides name/version/sha; D1-D3.5 acceptance negative"
+        }
+      },
+      {
+        "name": "x_legacy_compat_read",
+        "source": "_BUILD-PLAN.md 2.3 cortico-world-astrbot row (old hello without v support set passes as v:1) and 5-T3 mitigation (legacy hello sample must be a conformance vector)",
+        "input": {
+          "peer_wire": "{\"t\":\"hello\",\"token\":\"tk\",\"name\":\"Cortico\",\"capabilities\":{\"images\":true}}"
+        },
+        "expect": {
+          "accept_as": 1,
+          "mapped_caps": [
+            "images"
+          ],
+          "no_60001": true,
+          "note": "legacy private frame 4725feee6 is compat-read at negotiate.ts only; it never validates as a CBP frame (frame_negatives legacy_private_hello)"
+        }
+      },
+      {
+        "name": "x_call_timeout_60007",
+        "source": "_BUILD-PLAN.md 3.2 send handler: 30s timeout -> 60007; d-bridge-priorart 3.4 uncertain semantics",
+        "input": {
+          "rid": "cv-call-1",
+          "waited_ms": 30000,
+          "reply": null
+        },
+        "expect": {
+          "error": {
+            "code": 60007,
+            "message": "send_uncertain: no reply within 30000ms, may already be delivered, confirm before retry"
+          },
+          "error_wire": "{\"code\":60007,\"message\":\"send_uncertain: no reply within 30000ms, may already be delivered, confirm before retry\"}"
+        }
+      },
+      {
+        "name": "x_egress_closed_60005",
+        "source": "_BUILD-PLAN.md 3.2 verbatim handler string",
+        "input": {
+          "tool": "neko_send_message",
+          "egress": false
+        },
+        "expect": {
+          "tool_outcome_wire": "{\"failed\":true,\"text\":\"60005 door_closed: 出站门未开\"}"
+        }
+      },
+      {
+        "name": "x_neko_backpressure",
+        "source": "c1 5.4 map reason four to 60006/20002/60006/60003; r-neko 5 reason literal set",
+        "input": {
+          "ok": false,
+          "submitted": false,
+          "reason": "backpressure"
+        },
+        "expect": {
+          "error": {
+            "code": 60006,
+            "message": "peer_unreachable: backpressure"
+          },
+          "error_wire": "{\"code\":60006,\"message\":\"peer_unreachable: backpressure\"}"
+        }
+      },
+      {
+        "name": "x_neko_transport_error",
+        "input": {
+          "ok": false,
+          "submitted": false,
+          "reason": "transport_error"
+        },
+        "expect": {
+          "error": {
+            "code": 20002,
+            "message": "internal_handler_error: transport_error"
+          },
+          "error_wire": "{\"code\":20002,\"message\":\"internal_handler_error: transport_error\"}"
+        }
+      },
+      {
+        "name": "x_neko_transport_unavailable",
+        "input": {
+          "ok": false,
+          "submitted": false,
+          "reason": "transport_unavailable"
+        },
+        "expect": {
+          "error": {
+            "code": 60006,
+            "message": "peer_unreachable: transport_unavailable"
+          },
+          "error_wire": "{\"code\":60006,\"message\":\"peer_unreachable: transport_unavailable\"}"
+        }
+      },
+      {
+        "name": "x_neko_payload_reason",
+        "input": {
+          "ok": false,
+          "submitted": false,
+          "reason": "payload_too_large"
+        },
+        "expect": {
+          "error": {
+            "code": 60003,
+            "message": "payload_too_large"
+          },
+          "error_wire": "{\"code\":60003,\"message\":\"payload_too_large\"}"
+        }
+      },
+      {
+        "name": "x_neko_submitted_ok",
+        "input": {
+          "submitted": true
+        },
+        "expect": {
+          "reply_ok": true,
+          "reply_fragment_wire": "\"ok\":true"
+        }
+      },
+      {
+        "name": "x_neko_local_size_gate",
+        "source": "rules.neko_payload_gate; r-neko 5 (524288 minus 227 headroom); _BUILD-PLAN.md 2.4 ingress row",
+        "input": {
+          "translated_payload_bytes": 524062
+        },
+        "expect": {
+          "local_reject_before_host": true,
+          "error": {
+            "code": 60003,
+            "message": "payload_too_large: 524062 > 524061"
+          },
+          "error_wire": "{\"code\":60003,\"message\":\"payload_too_large: 524062 > 524061\"}"
+        }
+      },
+      {
+        "name": "x_v11_ws_1400",
+        "source": "c1 5.4 v11 WS 1400/1401/1403/1404 map to v12 1xxxx family; d-onebot-spec 3.1 ws.md:27-46",
+        "input": {
+          "status": "failed",
+          "retcode": 1400,
+          "data": null,
+          "echo": "123"
+        },
+        "expect": {
+          "error": {
+            "code": 10001,
+            "message": "bad_request v11 retcode 1400"
+          },
+          "error_wire": "{\"code\":10001,\"message\":\"bad_request v11 retcode 1400\"}"
+        }
+      },
+      {
+        "name": "x_v11_ws_1401",
+        "input": {
+          "status": "failed",
+          "retcode": 1401,
+          "data": null,
+          "echo": "123"
+        },
+        "expect": {
+          "error": {
+            "code": 10001,
+            "message": "bad_request v11 retcode 1401"
+          },
+          "error_wire": "{\"code\":10001,\"message\":\"bad_request v11 retcode 1401\"}"
+        }
+      },
+      {
+        "name": "x_v11_ws_1403",
+        "input": {
+          "status": "failed",
+          "retcode": 1403,
+          "data": null,
+          "echo": "123"
+        },
+        "expect": {
+          "error": {
+            "code": 10001,
+            "message": "bad_request v11 retcode 1403"
+          },
+          "error_wire": "{\"code\":10001,\"message\":\"bad_request v11 retcode 1403\"}"
+        }
+      },
+      {
+        "name": "x_v11_ws_1404",
+        "source": "d-onebot-spec 3.1 example response verbatim {\"status\":\"failed\",\"retcode\":1404,\"data\":null,\"echo\":\"123\"} (ws.md:30-35); 1404=API 不存在 maps to 10002 Unsupported Action (draft call inside the 1xxxx family)",
+        "input": {
+          "status": "failed",
+          "retcode": 1404,
+          "data": null,
+          "echo": "123"
+        },
+        "expect": {
+          "error": {
+            "code": 10002,
+            "message": "unsupported_action v11 retcode 1404"
+          },
+          "error_wire": "{\"code\":10002,\"message\":\"unsupported_action v11 retcode 1404\"}"
+        }
+      },
+      {
+        "name": "x_maibot_capability_denied",
+        "source": "MaiBot CapabilityResult{success,result,error} three-state (r-maibot 2 types; blueprint 2.1); host refusal text verbatim authorization.py:58 @478f671e6; c1 5.4 maps to 10004",
+        "input": {
+          "success": false,
+          "result": null,
+          "error": {
+            "type": "PermissionError",
+            "message": "插件 cortico_bridge 未获授权能力: send.text"
+          }
+        },
+        "expect": {
+          "error": {
+            "code": 10004,
+            "message": "unsupported_param: 插件 cortico_bridge 未获授权能力: send.text"
+          },
+          "error_wire": "{\"code\":10004,\"message\":\"unsupported_param: 插件 cortico_bridge 未获授权能力: send.text\"}"
+        }
+      },
+      {
+        "name": "x_maibot_route_not_accepted",
+        "source": "_BUILD-PLAN.md 3.4-2 error convention: accepted False retried once, still False -> 60007 plus degraded report",
+        "input": {
+          "route_message_accepted": false,
+          "retry_accepted": false
+        },
+        "expect": {
+          "error": {
+            "code": 60007,
+            "message": "send_uncertain: route_message returned accepted=false twice"
+          },
+          "error_wire": "{\"code\":60007,\"message\":\"send_uncertain: route_message returned accepted=false twice\"}",
+          "degraded_event": {
+            "name": "degraded",
+            "data": {
+              "cause": "route_not_accepted",
+              "detail": "gateway cbp_gateway"
+            }
+          }
+        }
+      },
+      {
+        "name": "x_koishi_empty_array_in_dispatch",
+        "source": "C1-4: rule only holds for traced receivers inside dispatch",
+        "input": {
+          "in_dispatch": true,
+          "session_send_returns": []
+        },
+        "expect": {
+          "error": {
+            "code": 60007,
+            "message": "send_uncertain: koishi session.send returned []"
+          },
+          "error_wire": "{\"code\":60007,\"message\":\"send_uncertain: koishi session.send returned []\"}"
+        }
+      },
+      {
+        "name": "x_koishi_bare_session_undefined",
+        "source": "C1-4: bare Session instance has no send accessor; bridge never calls it, so no error is produced",
+        "input": {
+          "in_dispatch": false,
+          "accessor": "session.send on bare instance"
+        },
+        "expect": {
+          "mapped": false,
+          "note": "undefined accessor is a programming error caught by vocab_gate (r-koishi 2.2 / 8-4), not a runtime code"
+        }
+      },
+      {
+        "name": "x_unknown_tool_60002",
+        "source": "_BUILD-PLAN.md 3.2 peer_call rule: only catalog-announced names accepted",
+        "input": {
+          "call_tool": "neko_nope",
+          "announced": [
+            "neko_send",
+            "neko_status"
+          ]
+        },
+        "expect": {
+          "error": {
+            "code": 60002,
+            "message": "capability_unavailable: neko_nope not in announced tools"
+          },
+          "error_wire": "{\"code\":60002,\"message\":\"capability_unavailable: neko_nope not in announced tools\"}"
+        }
+      },
+      {
+        "name": "x_unknown_conv_60004",
+        "input": {
+          "send_conv": "nope",
+          "known_convs": [
+            "group_5_4",
+            "4"
+          ]
+        },
+        "expect": {
+          "error": {
+            "code": 60004,
+            "message": "unknown_session: nope"
+          },
+          "error_wire": "{\"code\":60004,\"message\":\"unknown_session: nope\"}"
+        }
+      }
+    ]
+  },
+  "degrade": {
+    "note": "degraded event triggers (blueprint 3.2 row event name=degraded: unknown seg / external URL image rejected / over 524288 / button lost)",
+    "vectors": [
+      {
+        "name": "g_external_url_image_neko",
+        "source": "r-neko 5 and push-message.md:84 @52e973ed2: model path rejects external URL images, upload handle only",
+        "input": {
+          "neko": true,
+          "segment": {
+            "type": "image",
+            "data": {
+              "file": "https://external.example/x.png"
+            }
+          }
+        },
+        "expect": {
+          "reply_error": {
+            "code": 10007,
+            "message": "unsupported_segment_data: external url image rejected, upload handle only"
+          },
+          "degraded_cause": "external_url_image_rejected"
+        }
+      },
+      {
+        "name": "g_audio_video_neko",
+        "source": "r-neko 5: no upload api for audio/video",
+        "input": {
+          "neko": true,
+          "segment": {
+            "type": "record",
+            "data": {
+              "file": "a.amr"
+            }
+          }
+        },
+        "expect": {
+          "reply_error": {
+            "code": 60002,
+            "message": "capability_unavailable: audio/video upload api absent on neko"
+          },
+          "caps_absent": [
+            "audio_out"
+          ],
+          "degraded_cause": "audio_video_unsupported"
+        }
+      },
+      {
+        "name": "g_button_to_v11",
+        "source": "segments vectors button_url/button_callback double as the lossy text render",
+        "input": {
+          "leg": "v11",
+          "cbp_segment": {
+            "type": "button",
+            "data": {
+              "label": "Confirm"
+            }
+          }
+        },
+        "expect": {
+          "rendered_text": "[Button unavailable] Confirm",
+          "degraded_cause": "button_lost"
+        }
+      },
+      {
+        "name": "g_history_backfill_false",
+        "source": "blueprint 6.1: history_backfill cap false in v1, missed messages during disconnect are by design",
+        "input": {
+          "caps": [
+            "tools"
+          ]
+        },
+        "expect": {
+          "intersect_history_backfill": false,
+          "documented_in_readme": true
+        }
+      }
+    ]
+  },
+  "v11_line": {
+    "note": "Koishi/NoneBot v1 implementation-end line contract (_BUILD-PLAN.md 3.4-4); byte expectations from r-nonebot-onebot 2/3 and r-koishi 2.3/4",
+    "actions38": [
+      "send_private_msg",
+      "send_group_msg",
+      "send_msg",
+      "delete_msg",
+      "get_msg",
+      "get_forward_msg",
+      "send_like",
+      "set_group_kick",
+      "set_group_ban",
+      "set_group_anonymous_ban",
+      "set_group_whole_ban",
+      "set_group_admin",
+      "set_group_anonymous",
+      "set_group_card",
+      "set_group_name",
+      "set_group_leave",
+      "set_group_special_title",
+      "set_friend_add_request",
+      "set_group_add_request",
+      "get_login_info",
+      "get_stranger_info",
+      "get_friend_list",
+      "get_group_info",
+      "get_group_list",
+      "get_group_member_info",
+      "get_group_member_list",
+      "get_group_honor_info",
+      "get_cookies",
+      "get_csrf_token",
+      "get_credentials",
+      "get_record",
+      "get_image",
+      "can_send_image",
+      "can_send_record",
+      "get_status",
+      "get_version_info",
+      "set_restart",
+      "clean_cache"
+    ],
+    "actions38_source": "set-equal both ways: spec api/public.md:3-40 @d4456ee70 vs adapter-onebot 2.4.6 bot.pyi typed defs (r-nonebot-onebot 2.2); hidden .handle_quick_operation excluded (api/hidden.md:3; koishi adapter table lacks it, r-koishi 2.3)",
+    "event_leaves17": [
+      "PrivateMessageEvent",
+      "GroupMessageEvent",
+      "GroupUploadNoticeEvent",
+      "GroupAdminNoticeEvent",
+      "GroupDecreaseNoticeEvent",
+      "GroupIncreaseNoticeEvent",
+      "GroupBanNoticeEvent",
+      "FriendAddNoticeEvent",
+      "GroupRecallNoticeEvent",
+      "FriendRecallNoticeEvent",
+      "PokeNotifyEvent",
+      "LuckyKingNotifyEvent",
+      "HonorNotifyEvent",
+      "FriendRequestEvent",
+      "GroupRequestEvent",
+      "LifecycleMetaEvent",
+      "HeartbeatMetaEvent"
+    ],
+    "event_leaves17_source": "r-nonebot-onebot 2.1 leaf enumeration, 17/17 against onebot-11 event/*.md (d-onebot-spec 1)",
+    "discriminator_tree": [
+      "post_type",
+      [
+        "message_type",
+        "notice_type",
+        "request_type",
+        "meta_event_type"
+      ],
+      "sub_type"
+    ],
+    "reverse_routes_v11": {
+      "post": [
+        "/onebot/v11/",
+        "/onebot/v11/http",
+        "/onebot/v11/http/"
+      ],
+      "ws": [
+        "/onebot/v11/",
+        "/onebot/v11/ws",
+        "/onebot/v11/ws/"
+      ],
+      "get_polling": false,
+      "source": "r-nonebot-onebot 3.1 (3 POST + 3 WS, root serves both)"
+    },
+    "http_report_auth": {
+      "chain": [
+        {
+          "missing": "x-self-id",
+          "status": 400,
+          "body": "Missing X-Self-ID Header"
+        },
+        {
+          "secret_configured": true,
+          "missing": "x-signature",
+          "status": 401,
+          "body": "Missing Signature"
+        },
+        {
+          "bad": "x-signature: sha1=000...",
+          "status": 403,
+          "body": "Signature is invalid"
+        },
+        {
+          "empty_body": true,
+          "status": 400,
+          "body": "Invalid request body"
+        },
+        {
+          "valid": true,
+          "status": 204
+        }
+      ],
+      "signature_rule": "x-signature = \"sha1=\" + hex(HMAC-SHA1(secret, raw_body)); comparison verbatim adapter.py:314 @8e0d1145a",
+      "source": "r-nonebot-onebot 3.2"
+    },
+    "ws_reverse_nonebot": {
+      "cases": [
+        {
+          "missing": "x-self-id",
+          "close": [
+            1008,
+            "Missing X-Self-ID Header"
+          ]
+        },
+        {
+          "bad_token": true,
+          "close": [
+            1008,
+            "Authorization Header is invalid"
+          ]
+        },
+        {
+          "duplicate_self_id": true,
+          "close": [
+            1008,
+            "Duplicate X-Self-ID"
+          ]
+        }
+      ],
+      "x_client_role": "not read by v11; API/Event/Universal all handled as Universal (r-nonebot-onebot 3.3, C1-3)",
+      "source": "r-nonebot-onebot 3.3"
+    },
+    "ws_reverse_koishi": {
+      "x_client_role_required": "Universal",
+      "else": "close 1008 (r-koishi 4.7, koishi-plugin-adapter-onebot@6.9.5#8192ba3c8 lib/index.js:636-637)",
+      "nonebot_divergence": "NoneBot v11 ignores the header, so split-role connections merge silently; install doc risk note (_BUILD-PLAN.md 3.4-4, C1-3)",
+      "echo_split": "post_type in payload means event, else callback found by echo (lib/index.js:722-728, r-koishi 4.7)"
+    },
+    "outbound_frames": {
+      "nonebot_ws_call": {
+        "action": "set_group_ban",
+        "params": {
+          "group_id": 5,
+          "user_id": 4,
+          "duration": 60
+        },
+        "echo": "7"
+      },
+      "nonebot_http_call": {
+        "method": "POST",
+        "path": "/send_group_msg",
+        "body_params_only": {
+          "group_id": 5,
+          "message": "hi"
+        },
+        "bearer": "onebot_access_token"
+      },
+      "koishi_capture_verbatim": "{\"action\":\"send_group_msg\",\"params\":{\"group_id\":3003,\"message\":[{\"type\":\"text\",\"data\":{\"text\":\"hi\"}}]}}",
+      "koishi_capture_source": "r-koishi 2.3 probe11 sendMessage('3003',[h.text('hi')]) captured bytes",
+      "echo_note": "NoneBot echo is str(seq); cortico-world-onebot uses sl-N (d-bridge-priorart 2.4)",
+      "prepare_arg_rule": "only keys ending _id with |v| < 2^32 are returned to number: group_id becomes 3003, message_seq stays string (r-koishi 2.3)"
+    },
+    "required_inbound_fields": {
+      "fields": [
+        "font",
+        "raw_message",
+        "self_id"
+      ],
+      "missing_font_or_raw_message": {
+        "nonebot_class": "Event",
+        "get_message_error": "ValueError: Event has no message!",
+        "note": "event decodes to the generic Event and command matching silently fails (r-nonebot-onebot 2.5)"
+      },
+      "missing_self_id": {
+        "koishi_selfId": "undefined",
+        "note": "string 'undefined', self detection unusable (r-koishi 4.3)"
+      },
+      "unknown_post_type": {
+        "dropped": true,
+        "collator_log": "Failed to parse event",
+        "note": "message_self sample: ValueError then None, event gone (r-nonebot-onebot 2.5; ledger Collator line)"
+      },
+      "self_channel_rule": "message_sent with sender keeps channelId private:+sender.user_id (overwrite verified), target_id branch only wins when sender absent (r-koishi 4.1, 7-1)"
+    },
+    "koishi_dispatch_names": {
+      "never_dispatched": [
+        "onebot/message-reactions-updated",
+        "onebot/channel-updated",
+        "onebot/channel-created",
+        "onebot/channel-destroyed"
+      ],
+      "alias_groups": [
+        [
+          "message-created",
+          "message"
+        ],
+        [
+          "guild-removed",
+          "guild-deleted"
+        ],
+        [
+          "guild-member-removed",
+          "guild-member-deleted"
+        ]
+      ],
+      "source": "r-koishi 4.6; bridge translation must key on onebot+subtype, not on the declared slash names"
+    }
+  },
+  "neko_ipc": {
+    "note": "N.E.K.O host side IPC reference vectors (_BUILD-PLAN.md 2.1 conformance row: downlink 11 words + SDK notify 7 words + RpcEnvelope five-key constraint samples); source r-neko 7 @52e973ed2; the bridge never dials these sockets directly (ledger C1-15)",
+    "protocol_version": 1,
+    "downlink_words11": [
+      "TRIGGER",
+      "TRIGGER_CUSTOM",
+      "UI_CONTEXT",
+      "FREEZE",
+      "CANCEL_RUN",
+      "BUS_CHANGE",
+      "STOP",
+      "RPC_CANCEL",
+      "RPC_DISCONNECT",
+      "CONNECTION_CLOSED",
+      "DEADLINE_EXCEEDED"
+    ],
+    "downlink_source": "r-neko 7 communication.py AST: seven command words plus four cancel/error words",
+    "sdk_notify_words7": [
+      "ENTRY_UPDATE",
+      "STATIC_UI_REGISTER",
+      "LIST_ACTIONS_UPDATE",
+      "LLM_TOOL_REGISTER",
+      "LLM_TOOL_UNREGISTER",
+      "IMAGE_UPLOAD",
+      "IMAGE_UPLOAD_RESULT"
+    ],
+    "notify_source": "r-neko 7 child to host SDK notification words",
+    "rpc_ops8": [
+      "ping",
+      "health",
+      "bus.list_topics",
+      "bus.publish",
+      "bus.get_recent",
+      "bus.query",
+      "bus.conversations.get",
+      "bus.conversations.get_message"
+    ],
+    "rpc_ops8_source": "r-neko 7 protocol.py:12 Literal exactly eight",
+    "bus_publish_reachability": "UNVERIFIED at SDK level; bridge writes assume injection impossible (ledger 2 watch row; blueprint 6.1 U1)",
+    "rpc_envelope_constraints": {
+      "extra": "forbid",
+      "strict": true,
+      "v": "integer >= 1",
+      "op": "one of rpc_ops8",
+      "req_id": "string 1..64",
+      "from_plugin": "optional string <= 128",
+      "args": "optional dict, default {}",
+      "provenance": "plugin/message_plane/protocol.py:9,12,42-49 @52e973ed2, r-neko 7; ledger C1-15"
+    },
+    "rpc_envelope_vectors": [
+      {
+        "name": "ok_minimal",
+        "input_wire": "{\"v\":1,\"op\":\"ping\",\"req_id\":\"r1\"}",
+        "expect_valid": true,
+        "normalized_wire": "{\"v\":1,\"op\":\"ping\",\"req_id\":\"r1\",\"args\":{},\"from_plugin\":null}",
+        "note": "args omitted means {} and from_plugin defaults to null"
+      },
+      {
+        "name": "ok_full",
+        "input_wire": "{\"v\":1,\"op\":\"bus.get_recent\",\"req_id\":\"r2\",\"args\":{\"store\":\"messages\",\"topic\":\"neko\",\"limit\":100},\"from_plugin\":\"cortico_bridge\"}",
+        "expect_valid": true
+      },
+      {
+        "name": "bad_req_id_65",
+        "input_wire": "{\"v\":1,\"op\":\"ping\",\"req_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+        "expect_valid": false,
+        "reason": "req_id at most 64 (r-neko 7 measured 65-char ValidationError)"
+      },
+      {
+        "name": "bad_req_id_empty",
+        "input_wire": "{\"v\":1,\"op\":\"ping\",\"req_id\":\"\"}",
+        "expect_valid": false,
+        "reason": "req_id length 1..64"
+      },
+      {
+        "name": "bad_from_plugin_129",
+        "input_wire": "{\"v\":1,\"op\":\"ping\",\"req_id\":\"r\",\"from_plugin\":\"abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnopa\"}",
+        "expect_valid": false,
+        "reason": "from_plugin at most 128"
+      },
+      {
+        "name": "bad_extra_key",
+        "input_wire": "{\"v\":1,\"op\":\"ping\",\"req_id\":\"r\",\"x\":1}",
+        "expect_valid": false,
+        "reason": "extra=forbid"
+      },
+      {
+        "name": "bad_v_zero",
+        "input_wire": "{\"v\":0,\"op\":\"ping\",\"req_id\":\"r\"}",
+        "expect_valid": false,
+        "reason": "v >= 1"
+      },
+      {
+        "name": "bad_v_string",
+        "input_wire": "{\"v\":\"1\",\"op\":\"ping\",\"req_id\":\"r\"}",
+        "expect_valid": false,
+        "reason": "strict=True rejects string for int"
+      },
+      {
+        "name": "bad_op_ninth",
+        "input_wire": "{\"v\":1,\"op\":\"bus.purge\",\"req_id\":\"r\"}",
+        "expect_valid": false,
+        "reason": "op outside the eight Literal values"
+      },
+      {
+        "name": "bad_args_array",
+        "input_wire": "{\"v\":1,\"op\":\"ping\",\"req_id\":\"r\",\"args\":[]}",
+        "expect_valid": false,
+        "reason": "args Dict[str,Any], strict"
+      },
+      {
+        "name": "rpc_error_bad_code",
+        "input_wire": "{\"code\":65,\"message\":\"x\"}",
+        "expect_valid": false,
+        "reason": "RpcError code 1..64 (r-neko 7 RpcError)"
+      },
+      {
+        "name": "rpc_error_bad_message",
+        "input_wire": "{\"code\":1,\"message\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefz\"}",
+        "expect_valid": false,
+        "reason": "RpcError message at most 256 (257 chars here)"
+      }
+    ]
+  },
+  "open_items": [
+    "NapCat dialect resend and message_id double delivery cannot be vector-ized without dialing an IM; forbidden this round (ledger 2 conformance row)",
+    "koishi server default port and console line remain UNVERIFIED (ledger 2 install row)",
+    "consent_policy sha not pinned back to the base ledger; first-run wait is reported via connection/degraded events but carries no byte vector yet (ledger 2 plugin.toml row)",
+    "reply_tail real callback stays outside the first slice; no vectors (blueprint L92 reserved name)"
+  ]
+}
