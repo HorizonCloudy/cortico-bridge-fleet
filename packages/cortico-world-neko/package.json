@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-world-neko",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Cortico-side N.E.K.O world package: CBP v1 over dual-role WebSocket (listen 39701 / dial out), frame codec and driver reused from cortico-bridge-core. N.E.K.O 侧 Cortico world 包。",
   "license": "MIT",
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "ws": "^8.18.0",
-    "@horizoncloudy/cortico-bridge-core": "^0.1.0"
+    "@horizoncloudy/cortico-bridge-core": "^0.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

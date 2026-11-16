@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-world-maibot",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Cortico-side MaiBot world package: CBP v1 frames over WS listen, normalization against the measured MaiBot MessageDict/SDK model, tools() shell. / Cortico 侧 MaiBot world 包：接 CBP v1 帧，归一化表按 r-maibot 实测模型字段。",
   "license": "MIT",
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "ws": "^8.18.0",
-    "@horizoncloudy/cortico-bridge-core": "^0.1.0"
+    "@horizoncloudy/cortico-bridge-core": "^0.1.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
