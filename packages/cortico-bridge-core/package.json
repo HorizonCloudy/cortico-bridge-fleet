@@ -32,5 +32,21 @@
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.0",
     "typescript": "^5.7.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HorizonCloudy/cortico-bridge-fleet.git",
+    "directory": "packages/cortico-bridge-core"
+  },
+  "bugs": {
+    "url": "https://github.com/HorizonCloudy/cortico-bridge-fleet/issues"
+  },
+  "homepage": "https://github.com/HorizonCloudy/cortico-bridge-fleet#readme",
+  "author": "云朵 (HorizonCloudy)",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md"
+  ]
 }

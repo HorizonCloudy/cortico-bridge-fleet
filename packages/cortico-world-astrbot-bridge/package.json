@@ -45,5 +45,15 @@
     "cortico": "0.2.15",
     "tsx": "^4.23.15",
     "typescript": "^5.7.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HorizonCloudy/cortico-bridge-fleet.git",
+    "directory": "packages/cortico-world-astrbot-bridge"
+  },
+  "bugs": {
+    "url": "https://github.com/HorizonCloudy/cortico-bridge-fleet/issues"
+  },
+  "homepage": "https://github.com/HorizonCloudy/cortico-bridge-fleet#readme",
+  "author": "云朵 (HorizonCloudy)"
 }

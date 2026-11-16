@@ -4,11 +4,26 @@
   "type": "module",
   "description": "Cortico 侧 OneBot v11 world 包骨架：正向 WebSocket 接入任意 v11 实现，一个通用 action dispatcher 覆盖 35 动作（reality 38 减 3 凭证动作）与 17 事件叶子；不承诺 v12。",
   "license": "MIT",
-  "author": { "name": "Coopanion bridge fleet" },
-  "keywords": ["cortico-world", "cortico", "onebot", "onebot-v11", "qq", "napcat", "snowluma", "llonebot"],
-  "engines": { "node": ">=22.16.0" },
+  "author": {
+    "name": "Coopanion bridge fleet"
+  },
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "onebot",
+    "onebot-v11",
+    "qq",
+    "napcat",
+    "snowluma",
+    "llonebot"
+  ],
+  "engines": {
+    "node": ">=22.16.0"
+  },
   "main": "./src/definition.js",
-  "exports": { ".": "./src/definition.js" },
+  "exports": {
+    ".": "./src/definition.js"
+  },
   "files": [
     "src",
     "describe.json",
@@ -28,7 +43,20 @@
     "kind": "world",
     "api": 6,
     "displayName": "OneBot Bridge",
-    "tags": ["qq", "onebot", "onebot-v11"],
+    "tags": [
+      "qq",
+      "onebot",
+      "onebot-v11"
+    ],
     "describe": "describe.json"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HorizonCloudy/cortico-bridge-fleet.git",
+    "directory": "packages/cortico-world-onebot-bridge"
+  },
+  "bugs": {
+    "url": "https://github.com/HorizonCloudy/cortico-bridge-fleet/issues"
+  },
+  "homepage": "https://github.com/HorizonCloudy/cortico-bridge-fleet#readme"
 }
