@@ -38,7 +38,9 @@ test('package.json cortico 段：kind=world api=6 describe 指真文件', () => 
   assert.equal(pkg.cortico.api, 6);
   assert.equal(pkg.cortico.describe, 'describe.json');
   assert.match(pkg.engines.node, /^>=22\.16\.0$/);
-  assert.equal(pkg.dependencies['cortico-bridge-core'], 'file:../cortico-bridge-core');
+  // 依赖必须是可发布的版本范围。file: 依赖发布后消费者装不到内核，本地靠 workspace 链接就看不出来。
+  assert.match(pkg.dependencies['@horizoncloudy/cortico-bridge-core'], /^\^\d+\.\d+\.\d+$/);
+  assert.ok(!JSON.stringify(pkg.dependencies).includes('file:'), 'dependencies 里不许出现 file: 引用');
   assert.match(pkg.dependencies.ws, /^\^8\.18\.0$/);
 });
 

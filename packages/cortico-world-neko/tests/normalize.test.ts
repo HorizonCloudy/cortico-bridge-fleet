@@ -12,7 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { loadPins } from 'cortico-bridge-core';
+import { loadPins } from '@horizoncloudy/cortico-bridge-core';
 import {
   AI_BEHAVIOR_VALUES,
   EVENTS,

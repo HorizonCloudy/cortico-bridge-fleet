@@ -1,5 +1,5 @@
 {
-  "name": "cortico-world-onebot-bridge",
+  "name": "@horizoncloudy/cortico-world-onebot-bridge",
   "version": "0.1.0",
   "type": "module",
   "description": "Cortico 侧 OneBot v11 world 包骨架：正向 WebSocket 接入任意 v11 实现，一个通用 action dispatcher 覆盖 35 动作（reality 38 减 3 凭证动作）与 17 事件叶子；不承诺 v12。",
@@ -58,5 +58,8 @@
   "bugs": {
     "url": "https://github.com/HorizonCloudy/cortico-bridge-fleet/issues"
   },
-  "homepage": "https://github.com/HorizonCloudy/cortico-bridge-fleet#readme"
+  "homepage": "https://github.com/HorizonCloudy/cortico-bridge-fleet#readme",
+  "publishConfig": {
+    "access": "public"
+  }
 }

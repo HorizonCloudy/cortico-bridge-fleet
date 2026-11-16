@@ -1,7 +1,7 @@
-# cortico-world-astrbot-bridge（骨架）
+# @horizoncloudy/cortico-world-astrbot-bridge（骨架）
 
 AstrBot 侧 Cortico world 包的收编版骨架：Cortico 主动外拨 AstrBot 桥插件的 WS 服务，
-入站桥消息进事件库，出站经工具回执。收编基准 `cortico-world-astrbot @4725feee6`
+入站桥消息进事件库，出站经工具回执。收编基准 `@horizoncloudy/cortico-world-astrbot @4725feee6`
 （v1.3.4，2146 行存量），本包只做「帧协商位 + 骨架」增量，不是存量功能的完整替代。
 
 所有结论按 `C:/Users/54301/tmp/botfw-compat-20261115` 证据链：蓝图
@@ -130,7 +130,7 @@ World 不得直传该字段；宿主落库时把 `deliver:false` 翻成 `context
   的历史引用靠 UPGRADE 文档，不造兼容壳）。
 - 真机项全部未验：AstrBot 宿主没启动、桥插件没跑、QQ 没连（任务边界）。
   hello/ready 混跑、`astrbot_call_tool` turn 绑定、限流真实手感都在 §5.3-3 卡里。
-- 内核 `cortico-bridge-core` 未落仓：本包的 frames/negotiate/driver/segment 兜底
+- 内核 `@horizoncloudy/cortico-bridge-core` 未落仓：本包的 frames/negotiate/driver/segment 兜底
   是包内替身（文件头 `shortcut:` 已标），落仓后逐个改指内核。
 - `spec/CBP-v1.json`、`spec/pins.json`、`tools/check_ext.ts` 属别的工单；
   本包验收命令 `npx tsx tools/check_ext.ts <本包>` 暂不可跑（工具件不存在）。

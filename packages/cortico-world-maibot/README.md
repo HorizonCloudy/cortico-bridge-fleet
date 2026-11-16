@@ -1,4 +1,4 @@
-# cortico-world-maibot
+# @horizoncloudy/cortico-world-maibot
 
 Cortico 侧 MaiBot world 包：CBP v1 帧 over WS **监听端**，入站桥消息进事件库，
 出站只经工具回执。帧编解码/传输/档位/段渲染全部复用内核
@@ -89,7 +89,7 @@ npx tsx tests/drymount-gate.mts --regen  # 重导 describe.json（等价 pnpm de
 ```
 
 npm 通道：`--registry=https://registry.npmmirror.com --ignore-scripts`（本机 npmjs TLS 已知问题）。
-依赖：运行时 `ws ^8.18.0` + `cortico-bridge-core file:`；开发件 `cortico 0.2.15`（精确钉，
+依赖：运行时 `ws ^8.18.0` + `@horizoncloudy/cortico-bridge-core file:`；开发件 `cortico 0.2.15`（精确钉，
 禁 latest）/typescript/tsx/@types。类型 import 全部 `import type`，运行期零框架 import。
 
 ## 6. v1 不承诺（与蓝图 §6.1 一致）

@@ -1,4 +1,4 @@
-# cortico-world-onebot-bridge
+# @horizoncloudy/cortico-world-onebot-bridge
 
 Cortico 侧的 **OneBot v11 world 包骨架**。它是一条正向 WebSocket 客户端，连到任意
 OneBot v11 实现（NapCat、SnowLuma、LLOneBot、Lagrange 等），把对端消息与事件投进
@@ -94,6 +94,6 @@ npm test            # node --test：纯函数 / 事件投影 / 门禁 / 契约
 
 ## 来源
 
-行为对齐先例 `cortico-world-onebot @2e91b7fb1`（第三方，不 fork、不重写）与本次
+行为对齐先例 `@horizoncloudy/cortico-world-onebot @2e91b7fb1`（第三方，不 fork、不重写）与本次
 `repos/cortico @836238311`、`nonebot-adapter-onebot @2450b67a1` 运行产物。见
 `reports/_BUILD-PLAN.md` §2.3 与 `_REALITY-LEDGER.md` R11/R12。

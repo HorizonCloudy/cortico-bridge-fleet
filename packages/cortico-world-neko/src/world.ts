@@ -34,8 +34,8 @@ import {
   type Frame,
   type SelfDecl,
   type ToolAnn,
-} from 'cortico-bridge-core';
-import type { CatalogFrame, EventFrame, MsgFrame, NoticeFrame, ReplyFrame } from 'cortico-bridge-core/frames';
+} from '@horizoncloudy/cortico-bridge-core';
+import type { CatalogFrame, EventFrame, MsgFrame, NoticeFrame, ReplyFrame } from '@horizoncloudy/cortico-bridge-core/frames';
 import type { ToolDef, ToolOutcome, World, WorldHost, WorldWebUiDecl } from 'cortico/core/types.ts';
 import { CONFIG_GROUP, DEFAULTS, WORLD_ID, normalizeConfig, type NekoBridgeConfig } from './config.ts';
 import {

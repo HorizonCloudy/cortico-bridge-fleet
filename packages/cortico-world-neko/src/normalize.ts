@@ -16,7 +16,7 @@
  *   句柄）；audio/video 无上传 API；upload 归一 JPEG ≤2048 只在宿主那一个位
  *   ——Cortico 侧不重编码，JPEG 归一一位原则照写进拒收面。
  */
-import { coerceSegments, loadPins, type BlobInput, type Seg } from 'cortico-bridge-core';
+import { coerceSegments, loadPins, type BlobInput, type Seg } from '@horizoncloudy/cortico-bridge-core';
 
 /** 事件名显式映射表（蓝图 §2.3：不从 worldId 派生；先例 astrbot 包 EVENTS 同型）。 */
 export const EVENTS = {

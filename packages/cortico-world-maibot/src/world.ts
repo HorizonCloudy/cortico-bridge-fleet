@@ -35,8 +35,8 @@ import {
   type SelfDecl,
   type ToolAnn,
   type ToolRisk,
-} from 'cortico-bridge-core';
-import type { CatalogFrame, CallFrame, EventFrame, MsgFrame, NoticeFrame } from 'cortico-bridge-core/frames';
+} from '@horizoncloudy/cortico-bridge-core';
+import type { CatalogFrame, CallFrame, EventFrame, MsgFrame, NoticeFrame } from '@horizoncloudy/cortico-bridge-core/frames';
 import type { Logger, ToolDef, ToolOutcome, World, WorldHost, WorldWebUiDecl } from 'cortico/core/types.ts';
 import { CONFIG_GROUP, DEFAULTS, WORLD_ID, normalizeConfig, parseListenUrl, type MaibotConfig } from './config.ts';
 import { EVENTS, asMessageDict, convOf, hostSegToCbp, imageSegToBlob } from './normalize.ts';

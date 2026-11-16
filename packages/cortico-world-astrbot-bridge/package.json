@@ -1,5 +1,5 @@
 {
-  "name": "cortico-world-astrbot-bridge",
+  "name": "@horizoncloudy/cortico-world-astrbot-bridge",
   "version": "0.1.0",
   "type": "module",
   "description": "AstrBot bridge world for Cortico: CBP frame negotiation over the absorbed private-frame v1 protocol. / 收编自 cortico-world-astrbot 的 Cortico 侧桥包，带 CBP 帧协商位。",
@@ -55,5 +55,8 @@
     "url": "https://github.com/HorizonCloudy/cortico-bridge-fleet/issues"
   },
   "homepage": "https://github.com/HorizonCloudy/cortico-bridge-fleet#readme",
-  "author": "云朵 (HorizonCloudy)"
+  "author": "云朵 (HorizonCloudy)",
+  "publishConfig": {
+    "access": "public"
+  }
 }

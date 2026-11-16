@@ -1,10 +1,10 @@
-# cortico-world-neko
+# @horizoncloudy/cortico-world-neko
 
 Cortico 侧的 N.E.K.O world 包。`cortico` 块 `kind:"world"`、`api:6`（当前锚
 `EXTENSION_API_VERSIONS.world`，cortico `src/extensions/manifest.ts:23-27 @836238311`，
 经 `cortico-bridge-core/src/pins.ts:46` 快照与 `spec/pins.json` 同源）。
 帧编解码、WS 双角色驱动、去重、段渲染、错误码、能力协商**全部复用
-`cortico-bridge-core`**（本包零复制粘贴转换逻辑；`src/world.ts`/`src/normalize.ts`
+`@horizoncloudy/cortico-bridge-core`**（本包零复制粘贴转换逻辑；`src/world.ts`/`src/normalize.ts`
 的 import 就是复用点，测试 `world.test.ts` 有断言防回归）。
 
 对端 = N.E.K.O 宿主原生插件 `cortico-bridge-neko`（独立仓，py3.11）。
@@ -13,7 +13,7 @@ Cortico 侧的 N.E.K.O world 包。`cortico` 块 `kind:"world"`、`api:6`（当�
 ## 1. 连接形态（双角色）
 
 - 缺省 `role:'listen'`：本包在 `127.0.0.1:39701` 监听（`spec/pins.json` ports 行
-  「cortico-world-neko listen」，`_BUILD-PLAN.md` §4.4；R6：装机以 doctor 实扫为准），
+  「@horizoncloudy/cortico-world-neko listen」，`_BUILD-PLAN.md` §4.4；R6：装机以 doctor 实扫为准），
   桥插件从 N.E.K.O 插件子进程外拨进来（蓝图 §2.2 L83：neko 插件子进程禁听任何 HTTP）。
 - `role:'dial'`：本包拨 `url`（拓扑反过来时用；内核 `driver.ts` dial/listen 同一实现）。
 - token：只走 HTTP Upgrade 头 `Authorization: Bearer`（F4，内核 `driver.ts authHeaderOf`）。
@@ -46,7 +46,7 @@ Cortico 侧的 N.E.K.O world 包。`cortico` 块 `kind:"world"`、`api:6`（当�
 ### self 声明（F1/F2）
 
 本包在 hello/ready 的 `self` 位申报 `{id: worlds.neko.selfId, name:
-'cortico-world-neko', proven: false}`。**N.E.K.O 线永久 `proven:false`**
+'@horizoncloudy/cortico-world-neko', proven: false}`。**N.E.K.O 线永久 `proven:false`**
 （SECURITY-CBP §2.2、§6-9：bus 面只有读与 watch、无 publish，没有可实证的 bot 主键，
 `role=="assistant"` 是启发式）。由此三条，全部有测试钉：
 

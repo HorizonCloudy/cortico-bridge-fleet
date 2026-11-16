@@ -1,5 +1,5 @@
 {
-  "name": "cortico-bridge-core",
+  "name": "@horizoncloudy/cortico-bridge-core",
   "version": "0.1.0",
   "description": "CBP v1 bridge kernel: frames, segments, envelopes, negotiation, errors, dedup, driver, correlation, pins. No framework knowledge.",
   "type": "module",
@@ -48,5 +48,8 @@
     "src",
     "README.md",
     "CHANGELOG.md"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

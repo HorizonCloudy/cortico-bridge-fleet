@@ -1,0 +1,9 @@
+{
+  "name": "cortico-bridge-fleet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CBP v1 spec, bridge core and the four Cortico-side world packages",
+  "license": "MIT",
+  "workspaces": ["packages/*"],
+  "engines": { "node": ">=22.16.0" }
+}

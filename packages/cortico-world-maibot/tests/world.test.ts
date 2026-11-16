@@ -12,10 +12,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { RET, err, CAPS } from 'cortico-bridge-core';
-import type { Actor, Frame, SelfDecl, ToolAnn } from 'cortico-bridge-core';
-import type { MsgFrame } from 'cortico-bridge-core/frames';
-import type { DriverState } from 'cortico-bridge-core';
+import { RET, err, CAPS } from '@horizoncloudy/cortico-bridge-core';
+import type { Actor, Frame, SelfDecl, ToolAnn } from '@horizoncloudy/cortico-bridge-core';
+import type { MsgFrame } from '@horizoncloudy/cortico-bridge-core/frames';
+import type { DriverState } from '@horizoncloudy/cortico-bridge-core';
 import type { Logger, WorldHost, EventEnvelope } from 'cortico/core/types.ts';
 import {
   MaibotBridgeWorld,

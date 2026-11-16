@@ -13,8 +13,8 @@
  * account_id/session_id 做自发回声与会话键回落。
  * 段渲染与未知段 `[<type>]` 兜底不在这里 —— 唯一实现点是内核 segment.ts（C1-16）。
  */
-import { isKnownType } from 'cortico-bridge-core';
-import type { MsgFrame, Seg } from 'cortico-bridge-core/frames';
+import { isKnownType } from '@horizoncloudy/cortico-bridge-core';
+import type { MsgFrame, Seg } from '@horizoncloudy/cortico-bridge-core/frames';
 
 /** 宿主 MessageDict 键全集，逐字 message_utils.py:45-62 @478f671e6。 */
 export const HOST_MESSAGE_KEYS: readonly string[] = [

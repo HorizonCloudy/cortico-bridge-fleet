@@ -1,4 +1,4 @@
-# cortico-bridge-core
+# @horizoncloudy/cortico-bridge-core
 
 CBP v1 桥内核。零框架知识（蓝图 §2.1 决策 2：新框架 = world 包加一张表，永远不动内核）。
 运行时依赖只有 `ws`；Node ≥ 22.16.0（fleet 下限，package.json engines）。
@@ -26,10 +26,10 @@ src 共 12 个模块 2424 行。
 
 ## 谁在用
 
-- `cortico-world-neko`：`src/world.ts:20-38` 整段 import（双角色驱动 + 帧 + 渲染 + 协商）。
-- `cortico-world-maibot`：`src/world.ts:38` 起 import（监听端）。
-- `cortico-world-astrbot-bridge` 不走本内核——收编版自带 `src/frames.ts` / `src/driver.ts`
-  （baseline `cortico-world-astrbot @4725feee6`），其 `package.json` 依赖只有 `ws`。
+- `@horizoncloudy/cortico-world-neko`：`src/world.ts:20-38` 整段 import（双角色驱动 + 帧 + 渲染 + 协商）。
+- `@horizoncloudy/cortico-world-maibot`：`src/world.ts:38` 起 import（监听端）。
+- `@horizoncloudy/cortico-world-astrbot-bridge` 不走本内核——收编版自带 `src/frames.ts` / `src/driver.ts`
+  （baseline `@horizoncloudy/cortico-world-astrbot @4725feee6`），其 `package.json` 依赖只有 `ws`。
 
 ## 构建与测试
 
