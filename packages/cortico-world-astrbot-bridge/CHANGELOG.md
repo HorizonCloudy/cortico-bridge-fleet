@@ -2,6 +2,12 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.3
+
+- `apps` 换成 `qq` + `im`：同 maibot 的理由（TAGS.md:28、:60）。
+- 补 `experimental`：本包是骨架，存量包 @4725feee6 的功能面未完整替代。
+- 发布闸新增第五项：`cortico.tags` 每一项必须在市场词表内（`tests/_lib/release-gate.mjs` 的 `MARKET_TAGS`，抓自 cortico-extensions index.json，2026-11-16）。
+
 ## 0.1.2
 
 - 面板「桥状态」补客户端产物：`src/webui/client.js`，`cortico.webUiClient` 声明它。

@@ -15,6 +15,19 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const TOOL_TAGS = new Set(['read', 'write', 'speak', 'act', 'flow', 'snapshot']);
+// 市场 tag 词表：Pal-AI-Lab/cortico-extensions index.json 的 `tags` 键，抓取 2026-11-16。
+// 词表外的 tag 不报错也不提示，只在市场筛选器里被静默丢掉（scan.mjs:56
+// `tagList(...).filter((id) => index.tags[id])`）。2026-11-16 的教训：onebot-bridge 声明的
+// onebot / onebot-v11 两个词都不在词表里，市场上一律不可见，仓内测试全绿。
+// 上游词表只增不减（TAGS.md:96 提议新词的门槛是「至少 3 个已发布扩展要用」）；
+// 若上游删词导致本表过时，改这里并更新抓取日期。
+export const MARKET_TAGS = new Set([
+  'apps', 'browser', 'companion', 'computer-use', 'coopanion', 'corti', 'creative',
+  'diagnostics', 'experimental', 'external-setup', 'game', 'high-cost', 'im',
+  'injection-risk', 'internal-state', 'internet', 'local', 'memory', 'pal-ai-world',
+  'qq', 'real-world', 'requires-extension', 'requires-key', 'sensitive-data',
+  'streaming', 'unofficial-api', 'unsafe', 'video', 'voice',
+]);
 export const FOUR_TOOLS = (w) => [`${w}_send_message`, `${w}_status`, `${w}_history`, `${w}_peer_call`];
 // Required advertised face, per package, keyed on what the PEER bridge actually declares in
 // hello.tools (SECURITY-CBP §7 N3: hello declaration is the only authority; a world may not
@@ -116,6 +129,16 @@ export function releaseGate(pkgDir) {
       }
     }
     if (pkg.cortico.api !== 6) failures.push(`cortico.api must be 6 (_BUILD-PLAN §4.1), got ${pkg.cortico.api}`);
+  }
+
+  // 5. 市场 tag 词表：cortico.tags 每一项必须在 MARKET_TAGS 里（TAGS.md:5,31）。
+  //    notice / warning 两档只有写进 cortico.tags 才算声明（TAGS.md:30），所以这一项
+  //    管的是市场对用户可见的风险提示，不是装饰。
+  {
+    const tags = Array.isArray(pkg.cortico?.tags) ? pkg.cortico.tags : [];
+    for (const t of tags) {
+      if (!MARKET_TAGS.has(t)) failures.push(`cortico.tags "${t}" 不在市场词表（发布前置五）`);
+    }
   }
   return failures;
 }

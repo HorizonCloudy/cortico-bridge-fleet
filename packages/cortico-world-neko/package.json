@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-world-neko",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "经 CBP v1 帧协议连接 N.E.K.O 猫娘平台的桥：双角色 WebSocket、能力协商、出站门与身份登记。",
   "license": "MIT",
@@ -22,7 +22,8 @@
     "tags": [
       "apps",
       "external-setup",
-      "unofficial-api"
+      "unofficial-api",
+      "experimental"
     ],
     "describe": "describe.json",
     "webUiClient": "src/webui/client.js",

@@ -2,6 +2,12 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.3
+
+- 删 `onebot`、`onebot-v11`：两个词都不在索引仓 29 词词表内。市场抓取端会静默丢掉它们（cortico-extensions scan.mjs:56），既不报错也不提示，结果是按平台筛不到本包。
+- 补 `qq` + `im` + `experimental`：连的是 NapCat / SnowLuma / LLOneBot / Lagrange 这类非官方 QQ 客户端，本包又是骨架（图片下载、WebUI 与方言目录同步未做）。
+- 发布闸新增第五项：`cortico.tags` 每一项必须在市场词表内（`tests/_lib/release-gate.mjs` 的 `MARKET_TAGS`，抓自 cortico-extensions index.json，2026-11-16）。
+
 ## 0.1.2
 
 - 面板「桥状态」补客户端产物：`src/webui/client.js`，`cortico.webUiClient` 声明它。

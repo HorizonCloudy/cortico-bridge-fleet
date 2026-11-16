@@ -2,6 +2,12 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.3
+
+- `apps` 换成 `qq` + `im`：TAGS.md:28 规定别的 tag 成立时不用 `apps`；TAGS.md:60 又要求标了 `qq` 就同时标 `im`。
+- 补 `experimental`：MaiBot 出站发信腿未接线（对面桥 hello.tools 为空），只在单一宿主装态验过。
+- 发布闸新增第五项：`cortico.tags` 每一项必须在市场词表内（`tests/_lib/release-gate.mjs` 的 `MARKET_TAGS`，抓自 cortico-extensions index.json，2026-11-16）。
+
 ## 0.1.2
 
 - 面板「桥状态」补客户端产物：`src/webui/client.js`，`cortico.webUiClient` 声明它。

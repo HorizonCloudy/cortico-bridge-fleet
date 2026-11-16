@@ -14,7 +14,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FLEET_ROOT } from '../_lib/evidence.mjs';
-import { releaseGate, changelogHasVersion, TOOL_TAGS, FOUR_TOOLS } from '../_lib/release-gate.mjs';
+import { releaseGate, changelogHasVersion, TOOL_TAGS, MARKET_TAGS, FOUR_TOOLS } from '../_lib/release-gate.mjs';
 
 function makePkg(root, {
   name = 'cortico-world-x', version = '0.1.0', readme = '# x\n',
@@ -105,6 +105,27 @@ test('changelogHasVersion port matches author-guide.ts:107-113 semantics', () =>
 
 test('ToolTag vocabulary is the six verbatim values from types.ts:202', () => {
   assert.deepEqual([...TOOL_TAGS], ['read', 'write', 'speak', 'act', 'flow', 'snapshot']);
+});
+
+test('market tag vocabulary is the 29 ids in cortico-extensions index.json', () => {
+  assert.equal(MARKET_TAGS.size, 29);
+  for (const t of ['qq', 'im', 'external-setup', 'unofficial-api', 'experimental']) {
+    assert.ok(MARKET_TAGS.has(t), `词表应当含 ${t}`);
+  }
+  assert.ok(!MARKET_TAGS.has('onebot'), 'onebot 不在上游词表，这正是丢 tag 的成因');
+});
+
+test('gate rejects a cortico.tags entry outside the market vocabulary', () => {
+  const dir = makePkg(join(tmp, 'mk'), { tools: ['x_status'] });
+  const pj = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+  pj.cortico.tags = ['qq', 'im', 'onebot'];
+  writeFileSync(join(dir, 'package.json'), JSON.stringify(pj));
+  const fails = releaseGate(dir);
+  assert.ok(fails.some((f) => f.includes('"onebot"')), '词表外 tag 必须红');
+  assert.ok(!fails.some((f) => f.includes('"qq"')), '词表内 tag 不得报错');
+  pj.cortico.tags = ['qq', 'im'];
+  writeFileSync(join(dir, 'package.json'), JSON.stringify(pj));
+  assert.deepEqual(releaseGate(dir), [], '全在词表内就应当绿');
 });
 
 test('reference package cortico-world-onebot-bridge passes all three pre-release checks', (t) => {
