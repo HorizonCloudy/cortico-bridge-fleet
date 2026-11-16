@@ -1,0 +1,32 @@
+# 更新日志 · cortico-world-koishi
+
+每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
+
+## 0.1.0
+
+首个版本（v1 薄壳，不发布）：Cortico 侧 Koishi 插件兼容入口，**不写 Koishi 协议码**，
+用 OneBot v11 正向 WebSocket 拨 NapCat 类实现端，再叠 catalog 实现选择。只承诺 v11。
+
+- 事件时刻取值加 `Number.isFinite` 守卫（`projectEvent`）：畸形 `time`（`'abc'`、`null`、
+  `0`、负数、对象）回落当下时刻。缺守卫时 `new Date(NaN).toISOString()` 抛 RangeError，
+  异常沿 `#handleEvent` 落进 `onEvent` catch，整条消息事件被吞。形状照先例
+  `cortico-world-onebot-bridge/src/normalize.js:79-83 eventTs`。
+
+- 装载契约：`cortico` 块 `kind:"world"`、`api:6`、`describe:"describe.json"`、
+  `main`/`exports` 指 `src/definition.js`、全 `.js`；市场 tags 取词表五词
+  `qq/im/external-setup/unofficial-api/experimental`（不声明 `onebot`/`onebot-v11`，
+  两词在 29 词表外会市场静默隐身）；不声明 `webUiClient`。
+- 驱动：`src/driver.js` 整文件复制自 `cortico-world-onebot-bridge @c85a87b24`
+  （该包 exports 挡 subpath import，实跑 ERR_PACKAGE_PATH_NOT_EXPORTED）。
+- 工具四件 `koishi_*` 前缀（防撞名，`bot.ts:1146-1155 @836238311` 覆盖语义）：
+  `koishi_call`（act，门序原样 copy：名字闸 10002 → 身份闸 60004 → 策略闸；未知/扩展动作按写）、
+  `koishi_actions`（read，附实现识别与扩展白名单展示）、`koishi_events`（read）、
+  `koishi_status`（read）。`describe.json` 与 `tools()` 由 `KOISHI_TOOL_DECLS` 同源派生。
+- catalog 实现选择：连上后按 `get_version_info.app_name` 识别 napcat / snowluma /
+  llonebot / lagrange / go-cqhttp（样式移植 `@2e91b7fb1`）；per-impl 扩展白名单
+  起点值为空且标「猜」（未核验，recon.md §6-2），只展示不拦截。
+- ID 空间：全程 v11 原生数字 `message_id`、`group_id/user_id` 原样，不做 Koishi
+  字符串化；README 的对照表逐行核验自 `koishi-plugin-adapter-onebot @4109eb95c`。
+- 测试：`node --test`（`test/contract / world / implementations`）覆盖门序、事件投影、
+  契约同步、`onebot_*` 全文禁用扫描与实现识别；发布闸五项由 fleet 根
+  `tests/release/release-gate.test.mjs` 枚举进闸。

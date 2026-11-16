@@ -1,0 +1,72 @@
+{
+  "name": "@horizoncloudy/cortico-world-koishi",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Koishi 插件兼容入口薄壳：不写 Koishi 协议码，用 OneBot v11 正向 WebSocket 拨 NapCat 类实现端，再叠 catalog 实现选择。",
+  "license": "MIT",
+  "author": {
+    "name": "Coopanion bridge fleet"
+  },
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "koishi",
+    "qq",
+    "napcat",
+    "plugin-bridge"
+  ],
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "main": "./src/definition.js",
+  "exports": {
+    ".": "./src/definition.js"
+  },
+  "files": [
+    "src",
+    "describe.json",
+    "CHANGELOG.md",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "cortico": {
+    "kind": "world",
+    "api": 6,
+    "displayName": "Koishi Bridge",
+    "tags": [
+      "qq",
+      "im",
+      "external-setup",
+      "unofficial-api",
+      "experimental"
+    ],
+    "describe": "describe.json",
+    "locales": {
+      "zh": {
+        "displayName": "Koishi Bridge",
+        "description": "Koishi 插件兼容入口薄壳：不写 Koishi 协议码，用 OneBot v11 正向 WebSocket 拨 NapCat 类实现端，再叠 catalog 实现选择。"
+      },
+      "en": {
+        "displayName": "Koishi Bridge",
+        "description": "Thin Koishi plugin-compatibility shell: speaks no Koishi protocol; dials NapCat-style implementations over a OneBot v11 forward WebSocket with catalog-based implementation selection."
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HorizonCloudy/cortico-bridge-fleet.git",
+    "directory": "packages/cortico-world-koishi"
+  },
+  "bugs": {
+    "url": "https://github.com/HorizonCloudy/cortico-bridge-fleet/issues"
+  },
+  "homepage": "https://github.com/HorizonCloudy/cortico-bridge-fleet#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
