@@ -189,12 +189,29 @@ function capsVocabOf(j: Record<string, unknown>): CapName[] {
   return [...v] as CapName[];
 }
 
-function defaultPinsFile(): string {
-  const here = fileURLToPath(import.meta.url); // .../dist/src/pins.js (built) or src/pins.ts (tsx)
-  const pkgRoot = /[/\\]dist[/\\]/.test(here)
+function pkgRootOf(here: string): string {
+  return /[/\\]dist[/\\]/.test(here)
     ? join(here, '..', '..', '..') // dist/src -> dist -> package root
     : join(here, '..', '..'); // src -> package root
-  return join(pkgRoot, '..', '..', 'spec', 'pins.json'); // package -> packages -> fleet/spec
+}
+
+/**
+ * Pins file candidates, in the order that survives being installed.
+ * 1. CORTICO_PINS_JSON wins: the host or a test points at its own ledger.
+ * 2. <package>/spec/pins.json — the shipped layout. prepack copies the fleet ledger here.
+ * 3. <fleet>/spec/pins.json — the in-repo dev layout, so editing the ledger needs no rebuild.
+ * Returning candidate 2 when nothing exists keeps the error pointing at the file that must ship.
+ */
+function defaultPinsFile(): string {
+  const here = fileURLToPath(import.meta.url); // .../dist/src/pins.js (built) or src/pins.ts (tsx)
+  const env = process.env.CORTICO_PINS_JSON;
+  if (env) return env;
+  const pkgRoot = pkgRootOf(here);
+  const packed = join(pkgRoot, 'spec', 'pins.json');
+  if (existsSync(packed)) return packed;
+  const inRepo = join(pkgRoot, '..', '..', 'spec', 'pins.json');
+  if (existsSync(inRepo)) return inRepo;
+  return packed;
 }
 
 /**
@@ -205,7 +222,7 @@ function defaultPinsFile(): string {
  */
 export function loadPins(file?: string): Pins {
   const resolved = file ?? defaultPinsFile();
-  if (!existsSync(resolved)) fail(`读不到 ${resolved}（G1 单源件缺失即拒绝读数，不回落包内旧值）`);
+  if (!existsSync(resolved)) fail(`读不到 ${resolved}（G1 单源件缺失即拒绝读数，不回落包内旧值；发布产物必须由 prepack 带上包内 spec/pins.json）`);
   let j: Record<string, unknown>;
   try {
     j = JSON.parse(readFileSync(resolved, 'utf8')) as Record<string, unknown>;

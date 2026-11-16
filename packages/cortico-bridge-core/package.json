@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-bridge-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CBP v1 bridge kernel: frames, segments, envelopes, negotiation, errors, dedup, driver, correlation, pins. No framework knowledge.",
   "type": "module",
   "license": "MIT",
@@ -23,7 +23,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsc -p tsconfig.json && node --test dist/tests/"
+    "test": "tsc -p tsconfig.json && node --test dist/tests/",
+    "prepack": "node scripts/prepare_pins.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"
@@ -46,6 +47,8 @@
   "files": [
     "dist",
     "src",
+    "spec",
+    "scripts",
     "README.md",
     "CHANGELOG.md"
   ],
