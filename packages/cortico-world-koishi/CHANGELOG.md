@@ -17,7 +17,10 @@
   `qq/im/external-setup/unofficial-api/experimental`（不声明 `onebot`/`onebot-v11`，
   两词在 29 词表外会市场静默隐身）；不声明 `webUiClient`。
 - 驱动：`src/driver.js` 整文件复制自 `cortico-world-onebot-bridge @c85a87b24`
-  （该包 exports 挡 subpath import，实跑 ERR_PACKAGE_PATH_NOT_EXPORTED）。
+  （该包 exports 挡 subpath import，实跑 ERR_PACKAGE_PATH_NOT_EXPORTED）。复制件的病是
+  各自演化（先例：四份 Python 桥各自手抄 CBP 帧表抄出分歧），所以配逐字节等闸
+  `test/driver-parity.test.mjs`，并要求文件头写明来源件、钉住的 sha 与门禁编号。
+  升级时机：v11 驱动进内核 `exports` 或单列 v11 profile 包后，删复制件与本闸。
 - 工具四件 `koishi_*` 前缀（防撞名，`bot.ts:1146-1155 @836238311` 覆盖语义）：
   `koishi_call`（act，门序原样 copy：名字闸 10002 → 身份闸 60004 → 策略闸；未知/扩展动作按写）、
   `koishi_actions`（read，附实现识别与扩展白名单展示）、`koishi_events`（read）、
