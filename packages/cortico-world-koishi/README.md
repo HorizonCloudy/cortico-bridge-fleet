@@ -108,4 +108,10 @@ node --test tests/release/ # fleet 根目录跑发布闸（本目录一建即进
 `src/driver.js` 整文件复制自 `@horizoncloudy/cortico-world-onebot-bridge/src/driver.js
 @c85a87b24`（文件头注明）。行为对齐第三方 `cortico-world-onebot @2e91b7fb1`（不 fork、
 不 import）。门禁与取证：`work-phase2/K5-koishi-world/gate.md`、`recon.md`。
-v1 薄壳不发布；图片 blob、WebUI、真实 WS 往返留待完整实现。
+v1 薄壳不发布；图片 blob 与 WebUI 留待完整实现。
+
+真实 WS 往返已在 2026-11-17 对 v11 mock 实现端验过一次：14 项判据全过，记录在
+`work-phase2/K5-koishi-world/sandbox.md`，脚本 `C:/Users/54301/tmp/k6-require-probe/k5-mock-roundtrip.mjs`。
+覆盖连上、`get_login_info`/`get_version_info` 取 self 与实现识别、入站消息投影、
+写动作往返与 `retcode` 失败路径、`confirm` 策略闸、凭证动作 10002 不出网、
+畸形 `time` 不吞事件、断线推 `connection=false`。对 NapCat 真端的联调仍未做。
