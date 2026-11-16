@@ -1,8 +1,8 @@
 {
   "name": "@horizoncloudy/cortico-world-astrbot-bridge",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
-  "description": "AstrBot bridge world for Cortico: CBP frame negotiation over the absorbed private-frame v1 protocol. / 收编自 cortico-world-astrbot 的 Cortico 侧桥包，带 CBP 帧协商位。",
+  "description": "经 CBP 连接 AstrBot 的桥，收编旧私有帧协议并保留两阶段升级路径。",
   "license": "MIT",
   "keywords": [
     "cortico-world",
@@ -24,7 +24,18 @@
       "external-setup",
       "unofficial-api"
     ],
-    "describe": "describe.json"
+    "describe": "describe.json",
+    "webUiClient": "src/webui/client.js",
+    "locales": {
+      "zh": {
+        "displayName": "AstrBot · QQ (CBP)",
+        "description": "经 CBP 连接 AstrBot 的桥，收编旧私有帧协议并保留两阶段升级路径。"
+      },
+      "en": {
+        "displayName": "AstrBot · QQ (CBP)",
+        "description": "Bridge to AstrBot over CBP, absorbing the legacy private-frame protocol with a two-phase upgrade path."
+      }
+    }
   },
   "files": [
     "src",

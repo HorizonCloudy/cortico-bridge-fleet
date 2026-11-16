@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-bridge-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CBP v1 bridge kernel: frames, segments, envelopes, negotiation, errors, dedup, driver, correlation, pins. No framework knowledge.",
   "type": "module",
   "license": "MIT",

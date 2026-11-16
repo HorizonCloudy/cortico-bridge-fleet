@@ -2,6 +2,12 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.2
+
+- 面板「桥状态」补客户端产物：`src/webui/client.js`，`cortico.webUiClient` 声明它。
+- 描述改简体中文，并补 `cortico.locales.zh` / `.en` 两份。
+- 服务端补 `webUi().panels` 与 `invoke('status','get')`，面板数据面与状态工具同源。
+
 ## 0.1.0
 
 首个版本：Cortico 侧 OneBot v11 world 包骨架。只承诺 v11，不承诺 v12。

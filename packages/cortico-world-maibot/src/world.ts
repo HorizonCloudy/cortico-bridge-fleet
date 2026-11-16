@@ -315,6 +315,29 @@ export class MaibotBridgeWorld implements World {
         { label: 'egress', value: this.cfg.egress ? 'on' : 'off', tone: this.cfg.egress ? 'on' : 'off' },
         { label: '会话', value: this.seenConvs.size, tone: 'plain' },
       ],
+      panels: [
+        {
+          id: 'status',
+          title: '桥状态',
+          description: '连接、协商能力、自回声态、账号、对端工具目录、出站门与降级清单。',
+          getMethods: ['get'],
+        },
+      ],
+      invoke: async (panel, method) => {
+        if (panel === 'status' && method === 'get') {
+          return {
+            connected: this.connected,
+            caps: this.driver?.effectiveCaps() ?? [],
+            selfEcho: this.selfEchoState(),
+            accounts: [...this.accounts],
+            catalog: this.announcedTools(),
+            degraded: this.degradedList.slice(-10),
+            egress: this.cfg.egress,
+            ratePerMin: this.cfg.ratePerMin,
+          };
+        }
+        return { error: `unknown panel/method: ${panel}/${method}` };
+      },
       config: [CONFIG_GROUP],
       promptDocs: [
         {

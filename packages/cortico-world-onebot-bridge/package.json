@@ -1,8 +1,8 @@
 {
   "name": "@horizoncloudy/cortico-world-onebot-bridge",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
-  "description": "Cortico 侧 OneBot v11 world 包骨架：正向 WebSocket 接入任意 v11 实现，一个通用 action dispatcher 覆盖 35 动作（reality 38 减 3 凭证动作）与 17 事件叶子；不承诺 v12。",
+  "description": "接任意 OneBot v11 实现的桥：正向 WebSocket、通用 action 调度与动作目录覆盖度。",
   "license": "MIT",
   "author": {
     "name": "Coopanion bridge fleet"
@@ -48,7 +48,18 @@
       "onebot",
       "onebot-v11"
     ],
-    "describe": "describe.json"
+    "describe": "describe.json",
+    "webUiClient": "src/webui/client.js",
+    "locales": {
+      "zh": {
+        "displayName": "OneBot Bridge",
+        "description": "接任意 OneBot v11 实现的桥：正向 WebSocket、通用 action 调度与动作目录覆盖度。"
+      },
+      "en": {
+        "displayName": "OneBot Bridge",
+        "description": "Bridge to any OneBot v11 implementation: forward WebSocket, a generic action dispatcher and catalog coverage."
+      }
+    }
   },
   "repository": {
     "type": "git",

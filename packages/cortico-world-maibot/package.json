@@ -1,8 +1,8 @@
 {
   "name": "@horizoncloudy/cortico-world-maibot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "description": "Cortico-side MaiBot world package: CBP v1 frames over WS listen, normalization against the measured MaiBot MessageDict/SDK model, tools() shell. / Cortico 侧 MaiBot world 包：接 CBP v1 帧，归一化表按 r-maibot 实测模型字段。",
+  "description": "经 CBP v1 帧协议连接 MaiBot 的桥：监听 WebSocket、能力协商、出站门与对端工具清单。",
   "license": "MIT",
   "keywords": [
     "cortico-world",
@@ -24,7 +24,18 @@
       "external-setup",
       "unofficial-api"
     ],
-    "describe": "describe.json"
+    "describe": "describe.json",
+    "webUiClient": "src/webui/client.js",
+    "locales": {
+      "zh": {
+        "displayName": "MaiBot · QQ (CBP)",
+        "description": "经 CBP v1 帧协议连接 MaiBot 的桥：监听 WebSocket、能力协商、出站门与对端工具清单。"
+      },
+      "en": {
+        "displayName": "MaiBot · QQ (CBP)",
+        "description": "Bridge to MaiBot over CBP v1 frames: WS listen, capability negotiation, egress door and the peer tool catalog."
+      }
+    }
   },
   "files": [
     "src",

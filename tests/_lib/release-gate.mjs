@@ -57,6 +57,28 @@ export function releaseGate(pkgDir) {
     failures.push(`CHANGELOG.md has no "## ${version}" section`);
   }
 
+  // 4. 面板产物：声明了 cortico.webUiClient 就必须真有这个文件。
+  //    框架侧规则：包内相对路径、.js / .mjs（src/extensions/manifest.ts:149-156 @836238311）。
+  //    2026-11-16 的教训：world 声明了 panels 却没带客户端，宿主显示
+  //    「面板「桥状态」加载失败：缺少面板构建产物」，而仓内测试全绿。
+  {
+    const client = pkg.cortico?.webUiClient;
+    if (typeof client === 'string' && client) {
+      if (!/\.(m?js)$/.test(client)) {
+        failures.push(`cortico.webUiClient 必须是 .js 或 .mjs：${client}`);
+      } else if (client.startsWith('/') || client.includes('..')) {
+        failures.push(`cortico.webUiClient 必须是包内相对路径：${client}`);
+      } else if (!existsSync(join(pkgDir, client))) {
+        failures.push(`面板产物缺失：${client}（发布前置四）`);
+      } else {
+        const srcTxt = readFileSync(join(pkgDir, client), 'utf8');
+        if (!/panels\s*:/.test(srcTxt) || !/mount\s*:/.test(srcTxt)) {
+          failures.push(`面板客户端必须默认导出 { panels: { <id>: { mount(ctx) } } }：${client}`);
+        }
+      }
+    }
+  }
+
   // 3. describe — only for Cortico extension packages (kind declared in the manifest)
   if (pkg.cortico?.kind === 'world') {
     const describePath = pkg.cortico?.describe;

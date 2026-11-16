@@ -1,8 +1,8 @@
 {
   "name": "@horizoncloudy/cortico-world-neko",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "description": "Cortico-side N.E.K.O world package: CBP v1 over dual-role WebSocket (listen 39701 / dial out), frame codec and driver reused from cortico-bridge-core. N.E.K.O 侧 Cortico world 包。",
+  "description": "经 CBP v1 帧协议连接 N.E.K.O 猫娘平台的桥：双角色 WebSocket、能力协商、出站门与身份登记。",
   "license": "MIT",
   "keywords": [
     "cortico-world",
@@ -24,7 +24,18 @@
       "external-setup",
       "unofficial-api"
     ],
-    "describe": "describe.json"
+    "describe": "describe.json",
+    "webUiClient": "src/webui/client.js",
+    "locales": {
+      "zh": {
+        "displayName": "N.E.K.O · 猫娘 (CBP)",
+        "description": "经 CBP v1 帧协议连接 N.E.K.O 猫娘平台的桥：双角色 WebSocket、能力协商、出站门与身份登记。"
+      },
+      "en": {
+        "displayName": "N.E.K.O · 猫娘 (CBP)",
+        "description": "Bridge to the N.E.K.O pet platform over CBP v1 frames: dual-role WebSocket, capability negotiation, egress doors and turn identity."
+      }
+    }
   },
   "files": [
     "src",

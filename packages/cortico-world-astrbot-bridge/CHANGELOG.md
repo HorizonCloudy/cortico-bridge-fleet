@@ -2,6 +2,11 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.2
+
+- 面板「桥状态」补客户端产物：`src/webui/client.js`，`cortico.webUiClient` 声明它。
+- 描述改简体中文，并补 `cortico.locales.zh` / `.en` 两份。
+
 ## 0.1.0
 
 首个版本：收编版骨架。基准 `cortico-world-astrbot @4725feee6`（v1.3.4 存量），

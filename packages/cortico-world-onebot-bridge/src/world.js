@@ -222,6 +222,30 @@ export class OneBotBridgeWorld {
     return { text: capText(`${name} ok: ${JSON.stringify(res.data)}${note}`, 20000) };
   }
 
+  /**
+   * 面板「桥状态」：只读展示连接、自身账号、地址、写策略与动作覆盖度。
+   * 面板方法只接受 POST，getMethods 点名的方法才接受 GET（docs/webui.md:83）。
+   */
+  webUi() {
+    return {
+      panels: [
+        {
+          id: 'status',
+          title: '桥状态',
+          description: '连接、自身账号、地址、写策略、动作覆盖度与事件数。',
+          getMethods: ['get'],
+        },
+      ],
+      invoke: async (panel, method) => {
+        if (panel === 'status' && method === 'get') {
+          const raw = this.#statusTool().text;
+          return JSON.parse(raw);
+        }
+        return { error: `unknown panel/method: ${panel}/${method}` };
+      },
+    };
+  }
+
   #actionsTool(args) {
     if (args.name) {
       const entry = actionInfo(String(args.name));

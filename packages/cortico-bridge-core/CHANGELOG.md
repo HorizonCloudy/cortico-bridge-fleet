@@ -2,6 +2,17 @@
 
 每个版本一节 `## <版本号>`；本包不是 Cortico 扩展，版本号与 `package.json` version 同步。
 
+## 0.1.2
+
+- 发布闸新增第四项：`cortico.webUiClient` 声明了就必须有产物（`tests/_lib/release-gate.mjs`）。
+
+## 0.1.1
+
+- 发布产物自带台账：`prepack`（`scripts/prepare_pins.mjs`）把 fleet 唯一来源 `spec/pins.json` 复制进包内 `spec/`，并校验 schema/generated/caps/vocab 四段，缺段拒绝打包。
+- 读数次序改为三级：`CORTICO_PINS_JSON` → 包内 `spec/pins.json` → 仓库根 `spec/pins.json`。
+- 为什么：装进 `node_modules` 以后 `<包>/../../spec/pins.json` 不存在，fail-shut 直接抛，依赖本内核的 world 包在宿主里报「导入失败」。仓内测试撞不到这一层。
+- 新增 `tests/pins-installed.test.ts`：在临时目录拼出安装态布局再加载内核。
+
 ## 0.1.0
 
 首个版本：CBP v1 桥内核（`spec/CBP-v1.json` 十型帧的离线编解码与驱动面）。

@@ -46,6 +46,20 @@ test('gate fails on each missing precondition individually', () => {
   assert.ok(releaseGate(makePkg(join(tmp, 'c'), { describe: false })).some((f) => f.includes('cortico.describe')));
 });
 
+test('gate needs a real panel client when cortico.webUiClient is declared', () => {
+  const dir = makePkg(join(tmp, 'panel'), { tools: ['x_status'] });
+  const pj = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+  pj.cortico.webUiClient = 'src/webui/client.js';
+  writeFileSync(join(dir, 'package.json'), JSON.stringify(pj));
+  // 声明了却没产物：正是宿主「缺少面板构建产物」那张卡片的成因。
+  assert.ok(releaseGate(dir).some((f) => f.includes('面板产物缺失')), '缺产物必须红');
+  mkdirSync(join(dir, 'src', 'webui'), { recursive: true });
+  writeFileSync(join(dir, 'src', 'webui', 'client.js'), 'export default { thing: 1 };\n');
+  assert.ok(releaseGate(dir).some((f) => f.includes('panels')), '客户端形状不对必须红');
+  writeFileSync(join(dir, 'src', 'webui', 'client.js'), 'export default { panels: { status: { mount: async () => {} } } };\n');
+  assert.deepEqual(releaseGate(dir), [], '产物齐了就应当绿');
+});
+
 test('gate rejects undeclared tool names, out-of-vocab tags, and a wrong api', () => {
   const dir = makePkg(join(tmp, 'd'), { tools: ['x_status'], srcTools: ['x_status', 'x_secret'] });
   assert.ok(releaseGate(dir).some((f) => f.includes('x_secret')));
