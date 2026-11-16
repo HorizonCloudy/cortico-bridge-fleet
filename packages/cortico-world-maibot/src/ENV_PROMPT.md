@@ -14,8 +14,14 @@
 
 ## 回话规则
 
-- 本腿目前没接到「出站发到 IM」的能力：桥的 hello.tools 为空，发信腿属阶段二工单。
-  现在要回话，用桌宠自己的说话面（不打扰群里），别拿桥冒充平台回复。
+- 回话到平台用 `maibot_send_message`。conv 参数用入站事件带的会话键
+  （meta.conv / senderKey）；桥把它当 MaiBot stream_id 直通，不另造映射。
+- 出站门（egress）关着时该工具直接回 60005 door_closed —— 这是配置状态，不是失败重试的理由。
+  超每分钟上限（ratePerMin）回 rate_limited，同样不要重发。
+- 每条出站调用都钉在触发本轮的那条入站消息上（帧里的 turn/actor 由系统从实证记录填，
+  不接受自报）。本轮没有桥消息时 `maibot_send_message` / `maibot_streams` /
+  `maibot_peer_call` 回 60004 unknown_session —— 这是身份闸，不是网络故障。
+- 想看平台上有哪些会话，用 `maibot_streams`（读桥的 `chat.get_all_streams`，桥侧带短缓存）。
 - 桥一旦申报了某能力，`maibot_peer_call` 才按名字下发。对端没申报的能力，本地先判 60002，绝不盲发。
 - 回执写 60007 send_uncertain 时，消息可能已经发出：先向对端确认，不要盲目重发。
 

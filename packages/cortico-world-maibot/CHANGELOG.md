@@ -5,7 +5,11 @@
 ## 0.1.3
 
 - `apps` 换成 `qq` + `im`：TAGS.md:28 规定别的 tag 成立时不用 `apps`；TAGS.md:60 又要求标了 `qq` 就同时标 `im`。
-- 补 `experimental`：MaiBot 出站发信腿未接线（对面桥 hello.tools 为空），只在单一宿主装态验过。
+- 补 `experimental`：发信腿刚接线，真机派发路径未起宿主实测，只在单一宿主装态验过加载。
+- 发信腿接线（工单 K1）：`maibot_send_message` 与 `maibot_streams` 两支固定工具回到 `TOOL_DECLS`、
+  `describe.json`、`ENV_PROMPT.md`；`PEER_CAPABILITIES` 镜像改成桥 `hello.tools` 真申报的两支
+  （`maibot_send`、`chat.get_all_streams`）。对面 = `cortico-bridge-maibot/sender.py`。
+- 新增出站限流 `rateAllowed()`：60 秒滑动窗，参数校验排在限流之前，坏请求不吃额度。
 - 发布闸新增第五项：`cortico.tags` 每一项必须在市场词表内（`tests/_lib/release-gate.mjs` 的 `MARKET_TAGS`，抓自 cortico-extensions index.json，2026-11-16）。
 
 ## 0.1.2

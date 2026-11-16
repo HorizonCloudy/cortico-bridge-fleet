@@ -118,19 +118,74 @@ export const MAIBOT_PEER_CALL_DECL: ToolDecl = {
   },
 };
 
-/** 桥特有件 `maibot_streams`（转 `chat.get_all_streams` call）在发信腿接线后随 `PEER_CAPABILITIES` 恢复，见 §7 与 hello-authority 闸。 */
+/**
+ * 固定工具 `maibot_send_message`：出站发信腿，转 CBP call `maibot_send`。
+ * 桥侧真现在 `cortico-bridge-maibot/sender.py:_call_send`；能力名与桥 hello.tools 逐字一致
+ * （`client.py:_BRIDGE_TOOLS`，跨仓闸 tests/hello-authority.test.ts）。
+ */
+export const MAIBOT_SEND_DECL: ToolDecl = {
+  name: 'maibot_send_message',
+  description:
+    'Send text (plus optional inline segments) into a MaiBot conversation via the bridge. ' +
+    'Only works while egress is open; a closed door returns 60005 door_closed. Needs a bridge ' +
+    'message in this turn: without one it returns 60004 unknown_session (the call identity comes ' +
+    'from the inbound record, never from arguments). The bridge maps conv to MaiBot stream_id as ' +
+    'an identity, so pass the conversation id you saw inbound.',
+  tags: ['write'],
+  barrierAfter: true,
+  parameters: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      conv: { type: 'string', description: 'MaiBot session_id（入站 msg 帧的 conv）。' },
+      text: { type: 'string' },
+      segments: { type: 'array', description: 'CBP v11 形段（image 只认内联 base64）。' },
+    },
+    required: ['conv', 'text'],
+  },
+};
 
-export const TOOL_DECLS: readonly ToolDecl[] = [MAIBOT_STATUS_DECL, MAIBOT_HISTORY_DECL, MAIBOT_PEER_CALL_DECL];
+/**
+ * 固定工具 `maibot_streams`：读对端聊天流清单，转 CBP call `chat.get_all_streams`（能力名逐字）。
+ * 桥侧真现在 `sender.py:_call_streams`，并带 TTL 缓存表。
+ */
+export const MAIBOT_STREAMS_DECL: ToolDecl = {
+  name: 'maibot_streams',
+  description:
+    'List the conversations the MaiBot host exposes, read through the bridge. The bridge caches the ' +
+    'list for a short window. Needs a bridge message in this turn: without one it returns 60004 ' +
+    'unknown_session.',
+  tags: ['read'],
+  parameters: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { platform: { type: 'string', description: '缺省 qq。' } },
+  },
+};
+
+export const TOOL_DECLS: readonly ToolDecl[] = [
+  MAIBOT_SEND_DECL,
+  MAIBOT_STATUS_DECL,
+  MAIBOT_HISTORY_DECL,
+  MAIBOT_STREAMS_DECL,
+  MAIBOT_PEER_CALL_DECL,
+];
+
+/**
+ * 桥特有件 `maibot_streams`（转 `chat.get_all_streams` call）与发信腿 `maibot_send` 自工单 K1
+ * 起随桥申报恢复。跨仓镜像见下。
+ */
+export const MAIBOT_SEND_TOOL = 'maibot_send';
+export const MAIBOT_STREAMS_TOOL = 'chat.get_all_streams';
 
 /**
  * 桥侧 hello.tools 申报的 CBP 能力名，在 fleet 侧的镜像。唯一权威=对端 hello.tools
  * （spec/CHANGELOG-CBP.md N3 决策；CBP-v1.json:499「call.tool 必须在 ready/catalog tools[] 申报，
- * 否则 60002」）。发信腿未接线：`cortico-bridge-maibot/client.py:56` 申报 `tools=[]` → 本镜像必须空。
- * 跨仓闸 hello-authority.test.ts 锁两侧相等；桥若开始申报某能力，先改桥、再同步这里，并按
- * 跨仓闸 hello-authority.test.ts 锁两侧相等；桥若开始申报某能力，先改桥、再同步这里，并把对应
- * 固定工具加回 `TOOL_DECLS`/`describe.json`/`ENV_PROMPT.md`（发信腿 = `maibot_send`，流清单 = `chat.get_all_streams`）。
+ * 否则 60002」）。桥 K1 接线后申报两支（`cortico-bridge-maibot/client.py:34-37`），本镜像随之两支。
+ * 跨仓闸 hello-authority.test.ts 锁两侧相等；桥若改申报面，先改桥、再同步这里，并把对应固定工具
+ * 加/撤 `TOOL_DECLS`/`describe.json`/`ENV_PROMPT.md`（发信腿 = `maibot_send`，流清单 = `chat.get_all_streams`）。
  */
-export const PEER_CAPABILITIES: readonly string[] = [];
+export const PEER_CAPABILITIES: readonly string[] = [MAIBOT_SEND_TOOL, MAIBOT_STREAMS_TOOL];
 
 /** 内核 BridgeDriver 的本包用到的面（结构化，测试塞假件 —— 先例同位手法）。 */
 export interface MaibotDriverLike {
@@ -177,6 +232,7 @@ export class MaibotBridgeWorld implements World {
   }
 
   private degradedList: string[] = [];
+  private sendWindow: number[] = [];
   private seenConvs = new Set<string>();
   private accounts = new Set<string>();
   /** F3：本轮发起方位的记录（入站 msg 提供）；没有它就不许多出 call。 */
@@ -247,11 +303,28 @@ export class MaibotBridgeWorld implements World {
   }
 
   tools(): ToolDef[] {
-    // 能力目录静态面 = 恒可用的本端三支（status/history/peer_call）。
-    // 靠对端发信腿的 maibot_send_message/maibot_streams 不进目录：桥 hello.tools=[]（SECURITY-CBP §7 N3）。
-    // 桥申报某能力后，把对应 DELEG 加回 TOOL_DECLS/describe.json/ENV_PROMPT 并同步 PEER_CAPABILITIES；
+    // 能力目录静态面 = 本端三支（status/history/peer_call）+ 两支靠桥的固定工具。
+    // 靠桥两支之所以能进目录：桥 K1 接线后 hello.tools 真申报 `maibot_send` 与
+    // `chat.get_all_streams`（SECURITY-CBP §7 N3「申报=可达」，跨仓闸 hello-authority）。
+    // 桥撤掉某支申报时，两侧同批撤：这里删条目、PEER_CAPABILITIES 删名、describe/ENV_PROMPT 改口径。
     // peer_call 走 runCall 的 isAnnounced 闸——对端没申报的能力，本地判 60002，绝不盲下发。
     return [
+      {
+        ...MAIBOT_SEND_DECL,
+        handler: async (args) => {
+          if (!this.cfg.egress) {
+            this.noteDegraded('egress-closed');
+            return this.fmtErr(RET.DOOR_CLOSED, '出站门未开');
+          }
+          const conv = String(args.conv ?? '').trim();
+          if (!conv) return { text: 'bad_args: conv 必填', failed: true };
+          // 限流排在参数校验之后：坏请求不许吃掉这一分钟的额度。
+          if (!this.rateAllowed()) return { text: 'rate_limited: 超出每分钟发送上限', failed: true };
+          const callArgs: Record<string, unknown> = { conv, text: String(args.text ?? '') };
+          if (Array.isArray(args.segments)) callArgs.segments = args.segments;
+          return this.runCall(MAIBOT_SEND_TOOL, callArgs);
+        },
+      },
       {
         ...MAIBOT_STATUS_DECL,
         handler: async () =>
@@ -277,6 +350,14 @@ export class MaibotBridgeWorld implements World {
           const rows =
             this.host?.store.range({ source: WORLD_ID, senderKey: args.conv ? String(args.conv) : undefined, limit }) ?? [];
           return JSON.stringify(rows.map((e) => ({ ts: e.ts, type: e.type, text: e.text.slice(0, 400) })));
+        },
+      },
+      {
+        ...MAIBOT_STREAMS_DECL,
+        handler: async (args) => {
+          const callArgs: Record<string, unknown> = {};
+          if (args.platform) callArgs.platform = String(args.platform);
+          return this.runCall(MAIBOT_STREAMS_TOOL, callArgs);
         },
       },
       {
@@ -535,6 +616,16 @@ export class MaibotBridgeWorld implements World {
 
   private noteDegraded(item: string): void {
     if (!this.degradedList.includes(item)) this.degradedList.push(item);
+  }
+
+  /** 发信限流：60 秒滑动窗，`ratePerMin<=0` 表示不限（形状照 cortico-world-neko `rateAllowed`）。 */
+  private rateAllowed(): boolean {
+    if (this.cfg.ratePerMin <= 0) return true;
+    const now = Date.now();
+    this.sendWindow = this.sendWindow.filter((t) => now - t < 60_000);
+    if (this.sendWindow.length >= this.cfg.ratePerMin) return false;
+    this.sendWindow.push(now);
+    return true;
   }
 }
 

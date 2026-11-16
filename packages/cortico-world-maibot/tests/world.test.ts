@@ -174,26 +174,72 @@ test('self 申报三键闭合且诚实 proven:false（F1/F2；Cortico 无宿主�
   assert.equal(WORLD_SELF.proven, false);
 });
 
-// ── N3 能力目录交集闸：未接线期桥 hello.tools=[] → 固定发信工具不进目录 ───────
+// ── N3 能力目录交集闸：K1 接线后两支靠桥工具与桥 hello.tools 同步在场 ───────────
 
-test('未接线：maibot_send_message / maibot_streams 不在能力目录、申报清单、提示词里（SECURITY-CBP 反 caps-lie）', async () => {
+test('接线后：maibot_send_message / maibot_streams 进目录、进申报清单、进提示词（SECURITY-CBP §7 N3）', async () => {
   const f = makeWorld({});
   await f.world.start(fakeHost().host);
   const live = f.world.tools().map((t) => t.name);
-  assert.ok(!live.includes('maibot_send_message'), 'tools() 不该有未接线的 send_message');
-  assert.ok(!live.includes('maibot_streams'), 'tools() 不该有未接线的 streams');
+  assert.ok(live.includes('maibot_send_message'), '发信腿已接线，tools() 该有 send_message');
+  assert.ok(live.includes('maibot_streams'), '流清单腿已接线，tools() 该有 streams');
   const announced = peerToolCatalog(DEFAULTS).map((t) => t.name);
-  assert.deepEqual(announced, ['maibot_status', 'maibot_history', 'maibot_peer_call'], '申报清单只剩三支本端工具');
-  assert.deepEqual([...PEER_CAPABILITIES], [], 'fleet 镜像必须随桥 hello.tools=[] 空');
-  // describe.json 与提示词都不得再写这两个工具名。
+  assert.deepEqual(
+    announced,
+    ['maibot_send_message', 'maibot_status', 'maibot_history', 'maibot_streams', 'maibot_peer_call'],
+    '申报清单 = 五支固定工具',
+  );
+  assert.deepEqual(
+    [...PEER_CAPABILITIES],
+    ['maibot_send', 'chat.get_all_streams'],
+    'fleet 镜像必须随桥 hello.tools 两支同步（跨仓闸 hello-authority.test.ts）',
+  );
   const describe = JSON.parse(readFileSync(fileURLToPath(new URL('../describe.json', import.meta.url)), 'utf8')) as {
     tools: { name: string }[];
     prompts: { content: string }[];
   };
-  assert.ok(!describe.tools.some((t) => t.name === 'maibot_send_message' || t.name === 'maibot_streams'));
+  for (const n of ['maibot_send_message', 'maibot_streams']) {
+    assert.ok(describe.tools.some((t) => t.name === n), `describe.json 缺 ${n}`);
+  }
   const prompt = readFileSync(fileURLToPath(new URL('../src/ENV_PROMPT.md', import.meta.url)), 'utf8');
-  assert.ok(!prompt.includes('maibot_send_message') && !prompt.includes('maibot_streams'), 'ENV_PROMPT 仍写死未接线工具名');
-  assert.ok(!describe.prompts[0]!.content.includes('maibot_send_message') && !describe.prompts[0]!.content.includes('maibot_streams'));
+  assert.ok(prompt.includes('maibot_send_message') && prompt.includes('maibot_streams'), 'ENV_PROMPT 该写两支靠桥工具');
+  assert.ok(!prompt.includes('桥的 hello.tools 为空'), 'ENV_PROMPT 仍写未接线口径');
+  assert.ok(!describe.prompts[0]!.content.includes('桥的 hello.tools 为空'), 'describe 提示词仍写未接线口径');
+});
+
+// ── K1 发信腿：门关 60005、conv 必填、限流、streams 下发能力名逐字 ──────────────
+
+test('maibot_send_message / maibot_streams：门、参数、限流与下发名', async () => {
+  const ann: ToolAnn[] = [
+    { name: 'maibot_send', risk: 'write', confirm_required: true },
+    { name: 'chat.get_all_streams', risk: 'read', confirm_required: false },
+  ];
+  const txt = (r: unknown): string => (typeof r === 'string' ? r : String((r as { text?: string }).text ?? ''));
+  const send = (f: Fake, args: Record<string, unknown>) =>
+    f.world
+      .tools()
+      .find((t) => t.name === 'maibot_send_message')!
+      .handler!(args, { role: 'p', log } as never);
+
+  const closed = makeWorld({ egress: false }, undefined, null, ann);
+  await closed.world.start(fakeHost().host);
+  closed.fire(cbpMsg());
+  assert.match(txt(await send(closed, { conv: 's1', text: 'hi' })), new RegExp(String(RET.DOOR_CLOSED)));
+  assert.equal(closed.calls.length, 0, '门关不许下发 call');
+
+  const open = makeWorld({ egress: true, ratePerMin: 1 }, undefined, null, ann);
+  await open.world.start(fakeHost().host);
+  open.fire(cbpMsg());
+  assert.match(txt(await send(open, { conv: '  ', text: 'hi' })), /bad_args/);
+  assert.equal(await send(open, { conv: 's1', text: 'hi' }), 'sent');
+  assert.equal(open.calls[0]!.tool, 'maibot_send', '下发能力名必须与桥 hello.tools 逐字一致');
+  assert.equal(open.calls[0]!.args.conv, 's1');
+  assert.equal(open.calls[0]!.args.text, 'hi');
+  assert.match(txt(await send(open, { conv: 's1', text: 'hi2' })), /rate_limited/, '限流窗内第二次必须拒');
+
+  const streams = open.world.tools().find((t) => t.name === 'maibot_streams')!;
+  await streams.handler!({ platform: 'qq' }, { role: 'p', log } as never);
+  assert.equal(open.calls.at(-1)!.tool, 'chat.get_all_streams', '流清单能力名逐字（chat.py:57-59 @f9984673d）');
+  assert.equal(open.calls.at(-1)!.args.platform, 'qq');
 });
 
 // ── F3：call 带 turn + actor，__turn 私位退场；交集闸决定能否下发 ───────────────
@@ -203,7 +249,7 @@ test('对端没申报的能力：peer_call 本地判 60002 capability_unavailabl
   await f.world.start(fakeHost().host);
   f.fire(cbpMsg({ id: 'm-9' }));
   await new Promise((r) => setImmediate(r));
-  const out = await f.world.tools()[2]!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
+  const out = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
   assert.match(typeof out === 'string' ? '' : out.text, /60002 capability_unavailable/);
   assert.equal(f.calls.length, 0, '对端未申报 → 不许下发 call 帧');
 });
@@ -214,10 +260,10 @@ test('peer_call：对端 catalog 申报某能力后才下发；call 带本轮 tu
   f.fire(cbpMsg({ id: 'm-42' }));
   await new Promise((r) => setImmediate(r));
   // 交集闸：没申报的名单先拒，申报了才放行（证明权威=对端 hello/catalog）。
-  const cold = await f.world.tools()[2]!.handler({ tool: 'neko_nope' }, { role: 'p', log } as never);
+  const cold = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'neko_nope' }, { role: 'p', log } as never);
   assert.match(typeof cold === 'string' ? '' : cold.text, /60002 capability_unavailable/);
   f.fire({ v: 1, t: 'catalog', id: 'c1', ts: 0, tools: [{ name: 'maibot_send', risk: 'write', confirm_required: true }] as ToolAnn[] });
-  const out = await f.world.tools()[2]!.handler({ tool: 'maibot_send', args: { conv: 'c1', text: '你好' } }, { role: 'p', log } as never);
+  const out = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'maibot_send', args: { conv: 'c1', text: '你好' } }, { role: 'p', log } as never);
   assert.equal(out, 'sent');
   assert.equal(f.calls.length, 1);
   const c = f.calls[0]!;
@@ -233,7 +279,7 @@ test('peer_call：对端 catalog 申报某能力后才下发；call 带本轮 tu
 test('本轮没有桥消息 → peer_call 直接拒（no turn identity），不发出 call', async () => {
   const f = makeWorld({});
   await f.world.start(fakeHost().host);
-  const out = await f.world.tools()[2]!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
+  const out = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
   assert.match(typeof out === 'string' ? '' : out.text, /no turn identity/);
   assert.equal(f.calls.length, 0);
 });
@@ -244,7 +290,7 @@ test('reply.ok=false 带 error.code：逐字带码返回', async () => {
   f.fire(cbpMsg());
   await new Promise((r) => setImmediate(r));
   f.fire({ v: 1, t: 'catalog', id: 'c1', ts: 0, tools: [{ name: 'maibot_send', risk: 'write', confirm_required: true }] as ToolAnn[] });
-  const out = await f.world.tools()[2]!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
+  const out = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
   assert.match(typeof out === 'string' ? '' : out.text, /60007 send_uncertain: 结果未知/);
 });
 
@@ -256,7 +302,7 @@ test('callTool 超时拒绝（60007）→ send_uncertain 文案', async () => {
   f.fire(cbpMsg());
   await new Promise((r) => setImmediate(r));
   f.fire({ v: 1, t: 'catalog', id: 'c1', ts: 0, tools: [{ name: 'maibot_send', risk: 'write', confirm_required: true }] as ToolAnn[] });
-  const out = await f.world.tools()[2]!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
+  const out = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
   assert.match(typeof out === 'string' ? '' : out.text, /60007 send_uncertain/);
 });
 
@@ -268,7 +314,7 @@ test('driver 抛 60006（内核 callTool 无 ready 对端即拒）→ 逐字带�
   f.fire(cbpMsg());
   await new Promise((r) => setImmediate(r));
   f.fire({ v: 1, t: 'catalog', id: 'c1', ts: 0, tools: [{ name: 'maibot_send', risk: 'write', confirm_required: true }] as ToolAnn[] });
-  const out = await f.world.tools()[2]!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
+  const out = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'maibot_send' }, { role: 'p', log } as never);
   assert.match(typeof out === 'string' ? '' : out.text, /60006 peer_unreachable: no ready peer for call/);
 });
 
@@ -276,19 +322,19 @@ test('status：连接态 + caps 交集 + self-echo 位 + catalog + degraded + eg
   const f = makeWorld({ egress: true }, undefined, provenSelf);
   await f.world.start(fakeHost().host);
   f.fire({ v: 1, t: 'catalog', id: 'c1', ts: 0, tools: [{ name: 'maibot_send', risk: 'write', confirm_required: true }] as ToolAnn[] });
-  const st = JSON.parse((await f.world.tools()[0]!.handler({}, { role: 'p', log } as never)) as string);
+  const st = JSON.parse((await f.world.tools().find((t) => t.name === 'maibot_status')!.handler({}, { role: 'p', log } as never)) as string);
   assert.equal(st.egress, true);
   assert.deepEqual(st.caps, ['images', 'notices', 'tools']);
   assert.equal(st.selfEcho, 'on');
   assert.deepEqual(st.catalog.map((x: ToolAnn) => x.name), ['maibot_send']);
-  const cold = JSON.parse((await makeWorld({}).world.tools()[0]!.handler({}, { role: 'p', log } as never)) as string);
+  const cold = JSON.parse((await makeWorld({}).world.tools().find((t) => t.name === 'maibot_status')!.handler({}, { role: 'p', log } as never)) as string);
   assert.equal(cold.selfEcho, 'off', '没连上/没实证 → self-echo:off 常驻一位（§2.4）');
 });
 
 test('history 只查 host.store(source=maibot)，不查对端', async () => {
   const f = makeWorld({});
   await f.world.start(fakeHost().host);
-  const rows = JSON.parse((await f.world.tools()[1]!.handler({ limit: 5 }, { role: 'p', log } as never)) as string);
+  const rows = JSON.parse((await f.world.tools().find((t) => t.name === 'maibot_history')!.handler({ limit: 5 }, { role: 'p', log } as never)) as string);
   assert.equal(rows.length, 1);
   assert.equal(f.calls.length, 0);
 });
@@ -429,10 +475,10 @@ test('只在 hello/ready 申报、从不发 catalog 帧的桥：能力照样可�
   await f.world.start(fakeHost().host);
   f.fire(cbpMsg({ id: 'm-77' }));
   await new Promise((r) => setImmediate(r));
-  const out = await f.world.tools()[2]!.handler({ tool: 'maibot_send', args: { conv: 'c1', text: '你好' } }, { role: 'p', log } as never);
+  const out = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'maibot_send', args: { conv: 'c1', text: '你好' } }, { role: 'p', log } as never);
   assert.equal(out, 'sent', '握手申报即视为已申报；只看 catalog 帧会把这条判成 60002');
   assert.equal(f.calls.length, 1);
-  const cold = await f.world.tools()[2]!.handler({ tool: 'neko_nope' }, { role: 'p', log } as never);
+  const cold = await f.world.tools().find((t) => t.name === 'maibot_peer_call')!.handler({ tool: 'neko_nope' }, { role: 'p', log } as never);
   assert.match(typeof cold === 'string' ? '' : cold.text, /60002 capability_unavailable/, '并集不等于放开：两边都没申报的仍拒');
 });
 

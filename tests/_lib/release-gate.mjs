@@ -31,12 +31,15 @@ export const MARKET_TAGS = new Set([
 export const FOUR_TOOLS = (w) => [`${w}_send_message`, `${w}_status`, `${w}_history`, `${w}_peer_call`];
 // Required advertised face, per package, keyed on what the PEER bridge actually declares in
 // hello.tools (SECURITY-CBP §7 N3: hello declaration is the only authority; a world may not
-// advertise a *_send_message the bridge never announced). neko bridge declares neko_send, so its
-// four-tool face is required; the maibot send leg is unwired (cortico-bridge-maibot/client.py:56
-// declares tools=[]), so maibot advertises only the three bridge-independent tools.
+// advertise a *_send_message the bridge never announced). neko bridge declares neko_send.
+// MaiBot declared tools=[] until 工单 K1（2026-11-17）wired cortico-bridge-maibot/sender.py;
+// from that batch on the four-piece face applies again. Drop an entry here only in the same
+// commit that removes the bridge's hello.tools entry and the world's PEER_CAPABILITIES mirror.
 export const REQUIRED_FOUR = {
   'cortico-world-neko': FOUR_TOOLS('neko'),
-  'cortico-world-maibot': ['maibot_status', 'maibot_history', 'maibot_peer_call'],
+  // K1 接线（cortico-bridge-maibot/sender.py）后发信腿可达，四件齐。
+  // 撤腿时必须同批退回三支，并与桥 hello.tools、PEER_CAPABILITIES、hello-authority 同改。
+  'cortico-world-maibot': FOUR_TOOLS('maibot'),
 };
 
 export function changelogHasVersion(text, version) {

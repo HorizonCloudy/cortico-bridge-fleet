@@ -21,6 +21,10 @@ import { MaibotBridgeWorld, TOOL_DECLS } from './world.ts';
 
 /** 给人看的一句话（市场卡片用；不进提示词）。 */
 const TOOL_SUMMARIES: Readonly<Record<string, DescribeText>> = {
+  maibot_send_message: {
+    zh: '经桥把文本发进指定 MaiBot 会话；出站门关则直接拒。',
+    en: 'Sends text into a MaiBot conversation through the bridge; refused while egress is closed.',
+  },
   maibot_status: {
     zh: '报连接态、协商到的 caps、对端 catalog 与降级清单。',
     en: 'Reports connection, negotiated caps, peer catalog, degraded list.',
@@ -28,6 +32,10 @@ const TOOL_SUMMARIES: Readonly<Record<string, DescribeText>> = {
   maibot_history: {
     zh: '读 Cortico 事件库里本 world 的归档，不查对端。',
     en: "Reads this world's archive from the event store, never the peer.",
+  },
+  maibot_streams: {
+    zh: '读对端可见的会话清单，走桥的短缓存。',
+    en: 'Lists conversations visible to the host, through the bridge cache.',
   },
   maibot_peer_call: {
     zh: '按名字调对端已申报的工具，用本轮触发消息的身份执行。',

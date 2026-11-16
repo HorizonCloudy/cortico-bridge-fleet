@@ -11,10 +11,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PEER_CAPABILITIES } from '../src/world.ts';
 
-const BRIDGE = process.env.CORTICO_MAIBOT_BRIDGE ?? 'C:/Users/54301/cortico-bridge-maibot';
+// 默认取 fleet 的兄弟目录（tests → 包 → packages → fleet → 上层），装机位置无关；
+// 跨盘/改名时用 CORTICO_MAIBOT_BRIDGE 覆盖。原先硬编个人路径，换机即假绿或假红。
+const HERE = dirname(fileURLToPath(import.meta.url));
+const BRIDGE = process.env.CORTICO_MAIBOT_BRIDGE ?? join(HERE, '..', '..', '..', '..', 'cortico-bridge-maibot');
 
 /**
  * 解析桥 `hello()` 的 `tools=` 申报集合。支持两种写法：
@@ -43,8 +47,20 @@ test('桥 hello.tools 申报集合存在且可解析（先证明读得到桥侧�
   const src = readFileSync(join(BRIDGE, 'client.py'), 'utf8');
   const names = bridgeHelloToolNames(src);
   assert.ok(Array.isArray(names));
-  // 发信腿未接线 → 桥申报空集；这一条锁「读到的确实是 hello 那处 tools」而非误抓。
-  assert.deepEqual(names, [], '发信腿未接线期桥必须申报空 tools；若变红说明桥侧 hello 构造改了，跟着改 fleet 镜像');
+  // K1 接线后桥申报两支。这一条锁「读到的确实是 hello 那处 tools」而非误抓；
+  // 桥改申报面时，这里与 src/world.ts 的 PEER_CAPABILITIES 必须同批改（N3）。
+  assert.deepEqual(
+    names,
+    ['maibot_send', 'chat.get_all_streams'],
+    '桥申报面漂移：改桥必须同批改 fleet 镜像与本期望（SECURITY-CBP §7 N3）',
+  );
+  // 闸盲区记账：本解析按文本回读常量，若 _BRIDGE_TOOLS 加类型注解，正则里的 `]` 会截断它。
+  // 因此这条额外锁死：桥侧那行常量声明不许带注解。
+  assert.match(
+    src,
+    /^_BRIDGE_TOOLS = \[/m,
+    '桥 _BRIDGE_TOOLS 声明形状漂移（加了类型注解会让本闸正则读空 → 假绿），改桥先改这里',
+  );
 });
 
 test('跨仓一致：fleet PEER_CAPABILITIES 必须与桥 hello.tools 申报名集合相等', () => {

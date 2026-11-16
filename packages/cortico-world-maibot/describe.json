@@ -1,6 +1,38 @@
 {
   "tools": [
     {
+      "name": "maibot_send_message",
+      "description": "Send text (plus optional inline segments) into a MaiBot conversation via the bridge. Only works while egress is open; a closed door returns 60005 door_closed. Needs a bridge message in this turn: without one it returns 60004 unknown_session (the call identity comes from the inbound record, never from arguments). The bridge maps conv to MaiBot stream_id as an identity, so pass the conversation id you saw inbound.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "conv": {
+            "type": "string",
+            "description": "MaiBot session_id（入站 msg 帧的 conv）。"
+          },
+          "text": {
+            "type": "string"
+          },
+          "segments": {
+            "type": "array",
+            "description": "CBP v11 形段（image 只认内联 base64）。"
+          }
+        },
+        "required": [
+          "conv",
+          "text"
+        ]
+      },
+      "tags": [
+        "write"
+      ],
+      "summary": {
+        "zh": "经桥把文本发进指定 MaiBot 会话；出站门关则直接拒。",
+        "en": "Sends text into a MaiBot conversation through the bridge; refused while egress is closed."
+      }
+    },
+    {
       "name": "maibot_status",
       "description": "Report bridge connection, negotiated CBP caps, peer tool catalog and degraded list.",
       "parameters": {
@@ -39,6 +71,27 @@
       "summary": {
         "zh": "读 Cortico 事件库里本 world 的归档，不查对端。",
         "en": "Reads this world's archive from the event store, never the peer."
+      }
+    },
+    {
+      "name": "maibot_streams",
+      "description": "List the conversations the MaiBot host exposes, read through the bridge. The bridge caches the list for a short window. Needs a bridge message in this turn: without one it returns 60004 unknown_session.",
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "platform": {
+            "type": "string",
+            "description": "缺省 qq。"
+          }
+        }
+      },
+      "tags": [
+        "read"
+      ],
+      "summary": {
+        "zh": "读对端可见的会话清单，走桥的短缓存。",
+        "en": "Lists conversations visible to the host, through the bridge cache."
       }
     },
     {
@@ -110,7 +163,7 @@
       "key": "worlds.maibot.envPrompt",
       "title": "MaiBot 桥 · 环境提示词",
       "role": "envPrompt",
-      "content": "你在 MaiBot 桥这一头。你的话不是自己直接发出去的：线路的另一头是 MaiBot，\n它替你连平台与账号；你只负责说什么，它负责发。\n\n{{maibot.connection}}\n{{maibot.scope}}\n{{maibot.selfEcho}}\n{{maibot.accounts}}\n\n你能看到的会话：\n{{maibot.conversations}}\n\n对端桥已申报的工具（用 `maibot_peer_call` 按名字调，用本轮触发消息的身份执行）：\n{{maibot.tools}}\n\n## 回话规则\n\n- 本腿目前没接到「出站发到 IM」的能力：桥的 hello.tools 为空，发信腿属阶段二工单。\n  现在要回话，用桌宠自己的说话面（不打扰群里），别拿桥冒充平台回复。\n- 桥一旦申报了某能力，`maibot_peer_call` 才按名字下发。对端没申报的能力，本地先判 60002，绝不盲发。\n- 回执写 60007 send_uncertain 时，消息可能已经发出：先向对端确认，不要盲目重发。\n\n## 协商与降级\n\n- 「CBP v1」= 对端桥（cortico-bridge-maibot）申报了能力表，段格式与工具目录走\n  统一帧协商；桥只走 MaiBot 的 capabilities 面，不依赖 compat 兼容门面。\n- 保真降级记录：\n{{maibot.degraded}}\n\n降级位含义：未知段以 `[类型]` 占位保留（不吞消息）；`model-rejects:<mime>` = 当前模型\n不吃该 MIME，附件没进上下文；`egress-closed` = 有工具试图发言但门是关的；\n`self-unknown` = 桥没报来实证 self（proven:false），回声抑制关着（`self-echo:off`），\n你发的每条都会照常进上下文——这是显式降级，不是丢消息。\n桥断线期间的消息按设计丢失（v1 无断线补课，history_backfill 不申报）。\n"
+      "content": "你在 MaiBot 桥这一头。你的话不是自己直接发出去的：线路的另一头是 MaiBot，\n它替你连平台与账号；你只负责说什么，它负责发。\n\n{{maibot.connection}}\n{{maibot.scope}}\n{{maibot.selfEcho}}\n{{maibot.accounts}}\n\n你能看到的会话：\n{{maibot.conversations}}\n\n对端桥已申报的工具（用 `maibot_peer_call` 按名字调，用本轮触发消息的身份执行）：\n{{maibot.tools}}\n\n## 回话规则\n\n- 回话到平台用 `maibot_send_message`。conv 参数用入站事件带的会话键\n  （meta.conv / senderKey）；桥把它当 MaiBot stream_id 直通，不另造映射。\n- 出站门（egress）关着时该工具直接回 60005 door_closed —— 这是配置状态，不是失败重试的理由。\n  超每分钟上限（ratePerMin）回 rate_limited，同样不要重发。\n- 每条出站调用都钉在触发本轮的那条入站消息上（帧里的 turn/actor 由系统从实证记录填，\n  不接受自报）。本轮没有桥消息时 `maibot_send_message` / `maibot_streams` /\n  `maibot_peer_call` 回 60004 unknown_session —— 这是身份闸，不是网络故障。\n- 想看平台上有哪些会话，用 `maibot_streams`（读桥的 `chat.get_all_streams`，桥侧带短缓存）。\n- 桥一旦申报了某能力，`maibot_peer_call` 才按名字下发。对端没申报的能力，本地先判 60002，绝不盲发。\n- 回执写 60007 send_uncertain 时，消息可能已经发出：先向对端确认，不要盲目重发。\n\n## 协商与降级\n\n- 「CBP v1」= 对端桥（cortico-bridge-maibot）申报了能力表，段格式与工具目录走\n  统一帧协商；桥只走 MaiBot 的 capabilities 面，不依赖 compat 兼容门面。\n- 保真降级记录：\n{{maibot.degraded}}\n\n降级位含义：未知段以 `[类型]` 占位保留（不吞消息）；`model-rejects:<mime>` = 当前模型\n不吃该 MIME，附件没进上下文；`egress-closed` = 有工具试图发言但门是关的；\n`self-unknown` = 桥没报来实证 self（proven:false），回声抑制关着（`self-echo:off`），\n你发的每条都会照常进上下文——这是显式降级，不是丢消息。\n桥断线期间的消息按设计丢失（v1 无断线补课，history_backfill 不申报）。\n"
     }
   ]
 }
