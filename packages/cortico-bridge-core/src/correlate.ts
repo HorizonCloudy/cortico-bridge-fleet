@@ -7,7 +7,8 @@
  */
 import type { AckFrame, MsgFrame, ReplyFrame } from './frames.js';
 import { RET, err, type CbpError } from './errors.js';
-import { DEDUP_MAX, DEDUP_TTL_MS } from './dedup.js';
+import { DEDUP_MAX } from './dedup.js';
+import { effectiveTurnTtlSeconds } from './pins.js';
 
 export const PENDING_MAX = 200;
 export const PENDING_TTL_MS = 30_000;
@@ -94,10 +95,12 @@ export class PendingTable {
 /**
  * Turn ledger: msg id → the inbound record a call's `turn` must resolve against
  * (SECURITY-CBP §1: the bridge identifies the operator only from its own record; the
- * wire actor is reconciliation material). Same TTL map discipline as dedup; the window
- * is dedup.ts:14 (10 minutes) as §1 states.
- * shortcut: window fixed at DEDUP_TTL_MS; CHANGELOG §5 open-2 may re-pin it to the
- * 300s rid-cache window — upgrade when those vectors land.
+ * wire actor is reconciliation material). Same TTL map discipline as dedup, separate window.
+ * The window is the single-source turn retention window (工单二 F2): spec/CBP-v1.json
+ * $defs/turnWindow → gen_pins.py → spec/pins.json → pins.ts, with the
+ * CORTICO_TURN_TTL_SECONDS env override applied at construction. It is NOT the dedup TTL
+ * (dedup.ts:14, 10 minutes) and NOT the rid reply cache (idempotency.ts, §5.1) — the old
+ * shortcut that borrowed DEDUP_TTL_MS here is cleared by that batch.
  */
 export interface TurnRecord {
   conv: string;
@@ -111,7 +114,7 @@ export class TurnLedger {
   private readonly ttlMs: number;
   private readonly now: () => number;
 
-  constructor(max = DEDUP_MAX, ttlMs = DEDUP_TTL_MS, now: () => number = Date.now) {
+  constructor(max = DEDUP_MAX, ttlMs = effectiveTurnTtlSeconds().ttlSeconds * 1000, now: () => number = Date.now) {
     this.max = max;
     this.ttlMs = ttlMs;
     this.now = now;

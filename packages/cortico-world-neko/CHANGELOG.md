@@ -1,6 +1,45 @@
 # 更新日志 · cortico-world-neko
 
-每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
+每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。发版前批次记在 `## Unreleased`。
+
+## Unreleased（2026-11-17 · 工单二 F1–F6 批次，未发版）
+
+- F1 残键一次性清理（用户决定 2）：升级装载（`definition.create()`）删除
+  config.json 里 `worlds.neko.token` 旧残键并同步活配置对象。只删那一个键，其余段
+  逐字节不动；先读后删，读不到不写；第二次装载零写；日志只记键名；旧值非空记
+  「按已泄露处理」迁移提示。本包不清 `.env`、不写 `secret`。上一节的手工删键迁移步
+  随本条作废（值搬进 `.env` 仍要人工做）。
+- F2 turn 保留窗同源可调（用户决定 3，缺省 300 秒）：源在 `spec/CBP-v1.json`
+  `$defs/turnWindow`，经 `gen_table.py`/`gen_pins.py` 落两份产物；`lastTurn` 补按窗过期，
+  超窗回 `60004` 并记 `turn-expired`；提示词新增 `neko.window` 状态位；env 覆盖用
+  `CORTICO_TURN_TTL_SECONDS`（两端同名，坏值回落并记 `turn-ttl-env-invalid`）。与
+  `dedup.ts` 的 600 秒无关，那条腿没动。
+- F3 下发扬闸（`SECURITY-CBP.md` §7 后半边）：链路已立而对端没申报 `neko_send` 时，
+  `neko_send_message` 本地判 `60002 capability_unavailable`，不发 call 帧；未连接时不判
+  （60006 归内核）。桥侧申报面含 `neko_send` 已按只读取证核实。
+- F4 文档口径：README 错误码枚举补 `60002`/`60004`，新增 §9 F 编号图例。
+- F6 禁写清单：README 写死条数行与「config.json 不再落这个键」的现在时态断言改掉；
+  `describe.json` 经 drymount-gate `--regen` 重新生成；`ENV_PROMPT.md` 的 caps 行改为
+  「申报上限不等于交集」。
+- 回归：`tests/world.test.ts` 新增工单二 F1–F6 断言；跨仓等值闸见 fleet
+  `tests/pins/turn-window-gate.test.mjs` 与 core 的 turn 用例；仓外负例副本回退对应
+  修复后断言转红（ROUND3/negctl-fleet-F）。另有一笔仓级工单二 F5（`tools/doctor.py`
+  与 `tests/doctor/test_doctor.py` 的名字卫生），不属本包，记在仓内注释。
+
+## Unreleased（2026-11-17 · 工单一 F2/F3 批次，未发版）
+
+- F2 申报面与回帧：`peerToolCatalog` 退为空集；hello/ready 的 `tools[]` 不再带
+  `neko_send_message`、`neko_status`、`neko_history`、`neko_peer_call` 四支。入站
+  `call` 帧不再静默：立即回 `60002 capability_unavailable`，对端不必空等内核 30s
+  超时拿 60007。被调面本体仍属阶段二。口径对齐 `spec/SECURITY-CBP.md` §7 对
+  maibot 同类缺陷的交集推导裁决。
+- F3 凭据通道：删除 `worlds.neko.token` 的字段、缺省、归一化与面板项；`create()`
+  改读 `ctx.secret('CORTICO_BRIDGE_TOKEN')`（`spec/SECURITY-CBP.md` §3 规则 2）。
+  非环回绑定缺 token 的硬拒不变。迁移：旧面板填过 token 的部署，把值写进部署
+  `.env` 同名键后重启本 World。
+- 回归：`tests/world.test.ts` 新增四件断言（catalog 空集；真 socket 握手验
+  `ready.tools` 为空且入站 call 秒级回 60002；`create()` 走 secret 通道；
+  secret 值注入驱动构造）。仓外负例副本回退本批 src 改动后，四件转红。
 
 ## 0.1.3
 

@@ -6,7 +6,7 @@
   python -I tools/doctor.py --self-test   # 假 scan 注入，全离线（不碰 git、不开端口、不起环境）
   python -I tools/doctor.py --strict      # 把「查不到」升级为失败
 
-判据（可执行；「缺证据默认 0、--strict 升 1」的档位是建议值，待 云玩家 签字后定稿，gate G-K4-2）：
+判据（可执行；「缺证据默认 0、--strict 升 1」的档位是建议值，待仓内维护者签字后定稿，gate G-K4-2）：
   端口按 pins 的 owner 分向（分类只落此处，spec/pins.json 为禁改件，gate G-K4-1）：
   - owner 含 "listen" = 桥监听口：占用与 pins 正面矛盾 → exit 1（反证 A：39701 被占仍 FAIL）；空闲=桥未起，装机前正常态，不记。
   - 其余 = 宿主口：占用=宿主在线（期望态），降为信息项，不触发 exit 1；空闲=宿主未起 → WARN，--strict 升 1。

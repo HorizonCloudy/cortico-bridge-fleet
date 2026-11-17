@@ -18,15 +18,15 @@
  */
 import type { WorldDefinition, WorldDescribe } from 'cortico/world.ts';
 import type { DescribeText } from 'cortico/core/types.ts';
-import { DEFAULTS, type NekoBridgeConfig } from './config.ts';
+import { DEFAULTS, purgeLegacyTokenSection, type NekoBridgeConfig } from './config.ts';
 import { EVENTS } from './normalize.ts';
 import { NekoWorld, TOOL_DECLS } from './world.ts';
 
 /** 给人看的一句话（市场卡片用；不进提示词）。 */
 const TOOL_SUMMARIES: Readonly<Record<string, DescribeText>> = {
   neko_send_message: {
-    zh: '经桥向 N.E.K.O 会话发消息；出站门关着直接回 60005，本轮没有桥消息回 60004，超 caps.neko 帧上限（pins 单源）本地先拒回 60003。',
-    en: 'Send text through the bridge; 60005 while the egress door is closed, 60004 without a bridge message this turn, 60003 for oversized payloads.',
+    zh: '经桥向 N.E.K.O 会话发消息；出站门关着直接回 60005，本轮没有桥消息或超出 turn 保留窗回 60004，超 caps.neko 帧上限（pins 单源）本地先拒回 60003，对端没申报 neko_send 时本地回 60002 不发帧。',
+    en: 'Send text through the bridge; 60005 while the egress door is closed, 60004 without a live bridge message this turn, 60003 for oversized payloads, 60002 while the peer never announced neko_send.',
   },
   neko_status: {
     zh: '报连接角色、协商到的 caps、consent 等待态、对端 catalog 与降级清单。',
@@ -94,7 +94,16 @@ export const NEKO_WORLD: WorldDefinition<NekoBridgeConfig> = {
   label: 'N.E.K.O（CBP 桥）',
   defaults: () => ({ ...DEFAULTS }),
   // create() 纯：装配层会为未启用的 World 也调一次（硬规则 1）。
-  create: (ctx) => new NekoWorld({ cfg: ctx.cfg }),
+  // 工单一 F3：共享密钥只从 ctx.secret 取（SECURITY-CBP §3 规则 2）。键名与桥侧
+  // CORTICO_BRIDGE_TOKEN 对称；不落配置段、不落面板。secret 未配置返回空串，
+  // 与旧「token 留空不校验」同语义；非环回绑定的硬拒在内核 driver.listen。
+  // 工单二 F1（决定 2）：升级装载一次性删 config.json 里 worlds.neko.token 残键。
+  // 清理是同步文件卫生（不连接、不 await，构造纯不破）；create() 没有 log 口，
+  // 只含键名的提示先缓冲进实例，start() 拿到 host.log 后逐条回放。
+  create: (ctx) => {
+    const purgeNotes = purgeLegacyTokenSection(ctx.botDir, ctx.cfg as unknown as Record<string, unknown>);
+    return new NekoWorld({ cfg: ctx.cfg, authToken: ctx.secret('CORTICO_BRIDGE_TOKEN'), purgeNotes });
+  },
   describe: BRIDGE_DESCRIBE,
 };
 

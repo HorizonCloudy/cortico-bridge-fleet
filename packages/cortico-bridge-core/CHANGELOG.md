@@ -2,6 +2,16 @@
 
 每个版本一节 `## <版本号>`；本包不是 Cortico 扩展，版本号与 `package.json` version 同步。
 
+## Unreleased（2026-11-17 · 工单二 F2）
+
+- pins：`PINS.turn.ttlSeconds` 严读 `spec/pins.json` `turn.ttl_seconds`（缺段/坏值抛，F13 同款）。
+  `effectiveTurnTtlSeconds()` 应用 env `CORTICO_TURN_TTL_SECONDS`（秒、正数）；坏值回落台账值并回
+  degraded 原因 `turn-ttl-env-invalid`，不静默。单一源在 `spec/CBP-v1.json` `$defs/turnWindow`，
+  经 `tools/gen_pins.py` 生成入 pins.json；缺省 300 秒（用户 2026-11-17 拍板，工单二决定 3）。
+- correlate：`TurnLedger` 默认窗从 dedup 600 秒改挂同源窗；原文件里的 shortcut 注记随之清账。
+- 包内台账：`scripts/prepare_pins.mjs` 重跑后包内 `spec/pins.json` 带 turn 段；缺段拒绝装机的
+  仍是读侧严抛，不靠打包兜底。
+
 ## 0.1.2
 
 - 发布闸新增第四项：`cortico.webUiClient` 声明了就必须有产物（`tests/_lib/release-gate.mjs`）。

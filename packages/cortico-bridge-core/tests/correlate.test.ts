@@ -1,7 +1,8 @@
 /** correlate: rid reservation, settle, timeout error code, drop-on-overflow, tick liveness. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PendingTable, TickWatch } from '../src/correlate.js';
+import { readFileSync } from 'node:fs';
+import { PendingTable, TickWatch, TurnLedger } from '../src/correlate.js';
 import { RET } from '../src/errors.js';
 
 test('reserve then settle resolves the pending frame', async () => {
@@ -51,4 +52,29 @@ test('tick watch declares silence dead past the window', () => {
   now = 6600;
   w.note();
   assert.equal(w.dead(), false);
+});
+
+// ── 工单二 F2：TurnLedger 默认窗从 dedup 600 秒改挂同源窗 ─────────────────────
+
+test('TurnLedger default window follows the single-source turn ttl, not the dedup TTL (工单二 F2)', () => {
+  let now = 1_000_000_000;
+  const prev = process.env.CORTICO_TURN_TTL_SECONDS;
+  process.env.CORTICO_TURN_TTL_SECONDS = '300';
+  try {
+    const led = new TurnLedger(undefined, undefined, () => now);
+    led.record({ id: 'm-win', conv: 'c1', sender: { id: 'u', name: 'u' } });
+    now += 299_000;
+    assert.ok(led.lookup('m-win'), '299 秒仍在窗内');
+    now += 2_000;
+    assert.equal(led.lookup('m-win'), null, '301 秒过期——旧默认（dedup 600 秒）在这里必须判得出红');
+  } finally {
+    if (prev === undefined) delete process.env.CORTICO_TURN_TTL_SECONDS;
+    else process.env.CORTICO_TURN_TTL_SECONDS = prev;
+  }
+});
+
+test('correlate.ts must not default the ledger window to DEDUP_TTL_MS any more', () => {
+  const src = readFileSync(new URL('../../src/correlate.ts', import.meta.url), 'utf8');
+  assert.match(src, /ttlMs = effectiveTurnTtlSeconds\(\)\.ttlSeconds \* 1000/, '默认窗必须挂同源读数');
+  assert.doesNotMatch(src, /ttlMs = DEDUP_TTL_MS/, '不得再复用 dedup 的 600 秒');
 });

@@ -54,6 +54,12 @@ export interface Pins {
   };
   /** Capability-name vocabulary, single source spec/pins.json `vocab.cbp.caps`; order is the intersection order. */
   capsVocab: CapName[];
+  /**
+   * Turn retention window (工单二 F2). Single source: spec/CBP-v1.json $defs/turnWindow.const,
+   * generated into spec/pins.json `turn.ttl_seconds` by tools/gen_pins.py. No package-side copy;
+   * a missing or malformed section throws at import, same fail-shut discipline as caps (F13).
+   */
+  turn: { ttlSeconds: number };
   cortico: { version: string; sha9: string; api: number; previousApi: number };
   hosts: {
     neko: HostPin & { sdkVersion: string; pluginSupported: string; python: string };
@@ -78,7 +84,7 @@ function fail(msg: string): never {
 }
 
 /** Module constants for the NON-caps fields only. caps numbers live in spec/pins.json alone. */
-const BASE: Omit<Pins, 'caps' | 'capsVocab'> = {
+const BASE: Omit<Pins, 'caps' | 'capsVocab' | 'turn'> = {
   node: '>=22.16.0',
   ws: '^8.18.0',
   cbpVersion: 1,
@@ -189,6 +195,15 @@ function capsVocabOf(j: Record<string, unknown>): CapName[] {
   return [...v] as CapName[];
 }
 
+/** strict read of the turn section (工单二 F2): positive integer seconds or throw — no stale fallback. */
+function turnOf(j: Record<string, unknown>): Pins['turn'] {
+  if (!isObjRecord(j.turn)) fail('缺顶层 turn 段（工单二 F2 单源，spec/pins.json turn）——拒绝以旧值继续');
+  const v = (j.turn as Record<string, unknown>).ttl_seconds;
+  if (typeof v !== 'number' || !Number.isInteger(v) || v <= 0)
+    fail(`turn.ttl_seconds 必须为正整数秒，实为 ${JSON.stringify(v)}`);
+  return { ttlSeconds: v };
+}
+
 function pkgRootOf(here: string): string {
   return /[/\\]dist[/\\]/.test(here)
     ? join(here, '..', '..', '..') // dist/src -> dist -> package root
@@ -255,6 +270,7 @@ export function loadPins(file?: string): Pins {
     ...BASE,
     caps,
     capsVocab,
+    turn: turnOf(j),
     node: nodeMin ? `>=${nodeMin}` : BASE.node,
     cbpVersion: num(j.cbp_version) ?? BASE.cbpVersion,
     cortico: {
@@ -309,3 +325,19 @@ export function loadPins(file?: string): Pins {
 
 /** Kernel-wide pins, read from spec/pins.json at import. Throws (refuses to stand up) when caps are unreadable. */
 export const PINS: Pins = loadPins();
+
+/** Deployment override name for the turn window. The bridge side reads the same env name (工单二 F2). */
+export const TURN_TTL_ENV = 'CORTICO_TURN_TTL_SECONDS';
+
+/**
+ * Turn window in seconds with the env override applied, read at call time (PINS stays the ledger
+ * value). A malformed override falls back to the ledger and returns a degraded reason — never a
+ * silent change; the bridge side reports the same reason slug (`turn-ttl-env-invalid`).
+ */
+export function effectiveTurnTtlSeconds(): { ttlSeconds: number; degraded: string | null } {
+  const raw = (process.env[TURN_TTL_ENV] ?? '').trim();
+  if (raw === '') return { ttlSeconds: PINS.turn.ttlSeconds, degraded: null };
+  const v = Number(raw);
+  if (Number.isFinite(v) && v > 0) return { ttlSeconds: v, degraded: null };
+  return { ttlSeconds: PINS.turn.ttlSeconds, degraded: 'turn-ttl-env-invalid' };
+}

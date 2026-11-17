@@ -112,4 +112,4 @@ export {
   type PendingEntry,
   type TurnRecord,
 } from './correlate.js';
-export { PINS, loadPins, type HostPin, type Pins } from './pins.js';
+export { PINS, loadPins, TURN_TTL_ENV, effectiveTurnTtlSeconds, type HostPin, type Pins } from './pins.js';

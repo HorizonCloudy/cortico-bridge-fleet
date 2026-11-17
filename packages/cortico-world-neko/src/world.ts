@@ -4,7 +4,8 @@
  * cortico-bridge-core（任务红线：禁止复制粘贴一份转换逻辑）。
  *
  * 硬规则落点（d-bridge-priorart §7 八条；闸项=cortico dry-mount.ts:126 @836238311）：
- * - 构造纯：create() 只存配置，不连接、不读密钥、不 await。
+ * - 构造纯：create() 只存配置与 ctx.secret 取回的密钥串（工单一 F3），加残键一次性
+ *   清理落盘（工单二 F1，同步文件卫生），不连接、不 await。
  * - start() 等待上限 12s 放行；内核 driver.start() 永不 reject（driver.ts:137 注释）。
  * - 自发回声只归档：判定输入是桥握手帧的 self 声明（F1/F2），且只有 proven:true 可抑制；
  *   抑制时 pushEvent 入参 Omit 掉 contextDelivery（types.ts:692-694），唯一合法写法
@@ -20,9 +21,12 @@ import { fileURLToPath } from 'node:url';
 import {
   BridgeDriver,
   RET,
+  effectiveTurnTtlSeconds,
+  err,
   eventToEnvelope,
   isKnownType,
   msgToEnvelope,
+  newHead,
   noticeToEnvelope,
   renderSegments,
   sanitizeTools,
@@ -35,7 +39,7 @@ import {
   type SelfDecl,
   type ToolAnn,
 } from '@horizoncloudy/cortico-bridge-core';
-import type { CatalogFrame, EventFrame, MsgFrame, NoticeFrame, ReplyFrame } from '@horizoncloudy/cortico-bridge-core/frames';
+import type { CallFrame, CatalogFrame, EventFrame, MsgFrame, NoticeFrame, ReplyFrame } from '@horizoncloudy/cortico-bridge-core/frames';
 import type { ToolDef, ToolOutcome, World, WorldHost, WorldWebUiDecl } from 'cortico/core/types.ts';
 import { CONFIG_GROUP, DEFAULTS, WORLD_ID, normalizeConfig, type NekoBridgeConfig } from './config.ts';
 import {
@@ -109,6 +113,8 @@ export interface WorldHandlers {
 export interface BridgeLike {
   start(): Promise<void>;
   stop(): void;
+  /** 内核 BridgeDriver.send 形状（F2）：入站 call 的 60002 回帧从这里上线，rid 进内核幂等缓存。 */
+  send(frame: Frame): boolean;
   /** 内核 BridgeDriver.callTool 形状（F3）：turn+actor 必填，30s 超时经 PendingTable.timeoutError → 60007。 */
   callTool(tool: string, args: Record<string, unknown>, turn: string, actor: Actor): Promise<Frame>;
   /** 内核 BridgeDriver.peerSelf 形状（F1/F2）：桥握手帧里的 self 声明，回声判定的唯一合法输入。 */
@@ -121,7 +127,14 @@ export interface BridgeLike {
 
 export interface WorldOptions {
   cfg: Partial<NekoBridgeConfig> | undefined;
-  makeDriver?: (cfg: NekoBridgeConfig, log: WorldHost['log'], handlers: WorldHandlers) => BridgeLike;
+  /** 工单一 F3：共享密钥单源 = definition.ts 的 ctx.secret('CORTICO_BRIDGE_TOKEN')。空串按未配置处理。 */
+  authToken?: string;
+  /** 工单二 F1：残键清理的回放缓冲（create() 没有 log 口，start() 里逐条 warn）。 */
+  purgeNotes?: string[];
+  /** 测试接缝：turn 保留窗秒数与时钟注入。缺省走内核同源读数（工单二 F2）。 */
+  turnTtlSeconds?: number;
+  now?: () => number;
+  makeDriver?: (cfg: NekoBridgeConfig, log: WorldHost['log'], handlers: WorldHandlers, authToken?: string) => BridgeLike;
 }
 
 export type ToolDecl = Omit<ToolDef, 'handler'>;
@@ -130,9 +143,12 @@ export const NEKO_SEND_DECL: ToolDecl = {
   name: 'neko_send_message',
   description:
     'Send text (plus optional inline image segments) into a N.E.K.O conversation via the bridge. ' +
-    'Only works while egress is open; closed door returns 60005 door_closed. Needs a bridge message ' +
-    'in this turn: without one it returns 60004 unknown_session (the call identity comes from the ' +
-    'inbound record, never from arguments). External-URL images and audio/video segments are refused ' +
+    'Only works while egress is open; closed door returns 60005 door_closed. Needs a live bridge ' +
+    'message in this turn: without one, or after the turn retention window passes, it returns 60004 ' +
+    'unknown_session (the call identity comes from the inbound record, never from arguments; the ' +
+    'window has one source in the spec, default 300 seconds, CORTICO_TURN_TTL_SECONDS overrides it). ' +
+    'While the peer has not announced neko_send, this tool returns 60002 capability_unavailable and ' +
+    'sends no frame (SECURITY-CBP §7). External-URL images and audio/video segments are refused ' +
     'locally (host has no upload API for them).',
   tags: ['write'],
   barrierAfter: true,
@@ -205,8 +221,9 @@ export class NekoWorld implements World {
   }
 
   private seenConvs = new Set<string>();
-  /** F3：本轮触发消息的实证记录（入站 msg 帧带进来的宿主侧值），出站 call 的 turn/actor 唯一来源。 */
-  private lastTurn: { id: string; conv: string; member: { id: string; name: string } } | null = null;
+  /** 工单一 F3：本轮触发消息的实证记录（入站 msg 帧带进来的宿主侧值），出站 call 的 turn/actor 唯一来源。
+   * `at` 记入窗时刻：工单二 F2 起 lastTurn 不只随断线清，也按同源保留窗随时钟过期。 */
+  private lastTurn: { id: string; conv: string; member: { id: string; name: string }; at: number } | null = null;
   private degradedList: string[] = [];
   private sendWindow: number[] = [];
   private consent = '';
@@ -214,19 +231,24 @@ export class NekoWorld implements World {
   constructor(opts: WorldOptions) {
     this.cfg = normalizeConfig(opts.cfg);
     this.opts = opts;
+    this.nowFn = opts.now ?? Date.now;
   }
+
+  private readonly nowFn: () => number;
 
   private readonly opts: WorldOptions;
 
   /** 连接等待上限 12s 放行（蓝图 §2.3 硬规则）。 */
   async start(host: WorldHost): Promise<void> {
     this.host = host;
+    // 工单二 F1：残键在 create() 里已落盘删除，这里把只含键名的提示补进运行日志。
+    for (const note of this.opts.purgeNotes ?? []) host.log.warn(note);
     const handlers: WorldHandlers = {
       onState: (s) => this.onState(s),
       onFrame: (f) => this.onFrame(f),
     };
     const driver =
-      this.opts.makeDriver?.(this.cfg, host.log, handlers) ??
+      this.opts.makeDriver?.(this.cfg, host.log, handlers, this.opts.authToken) ??
       new BridgeDriver({
         role: this.cfg.role,
         url: this.cfg.url,
@@ -236,7 +258,7 @@ export class NekoWorld implements World {
         self: bridgeSelf(this.cfg),
         caps: [...NEKO_CAPS],
         tools: peerToolCatalog(this.cfg),
-        authToken: this.cfg.token !== '' ? this.cfg.token : undefined,
+        authToken: this.opts.authToken !== undefined && this.opts.authToken !== '' ? this.opts.authToken : undefined,
         reconnectBaseMs: this.cfg.reconnectBaseMs,
         reconnectMaxMs: this.cfg.reconnectMaxMs,
         onState: (s) => this.onState(s),
@@ -262,6 +284,8 @@ export class NekoWorld implements World {
   }
 
   envPromptVars(): Record<string, string> {
+    const win =
+      this.opts.turnTtlSeconds === undefined ? effectiveTurnTtlSeconds() : { ttlSeconds: this.opts.turnTtlSeconds, degraded: null };
     return {
       'neko.connection': this.connected
         ? `已连接（${this.cfg.role}，caps：${this.caps.join('、') || '交集为空'}）`
@@ -269,6 +293,7 @@ export class NekoWorld implements World {
           ? `未连接（监听 ${this.cfg.host}:${this.cfg.port}，等待桥接入）`
           : `未连接（拨号 ${this.cfg.url}，后台重连中）`,
       'neko.scope': `egress=${this.cfg.egress ? '开' : '关'}，ratePerMin=${this.cfg.ratePerMin}，visibility=${this.cfg.visibility || '（空）'}，ai_behavior=${this.cfg.aiBehavior}`,
+      'neko.window': `turn 保留窗 ${win.ttlSeconds} 秒（两端同源：spec/CBP-v1.json $defs/turnWindow；env CORTICO_TURN_TTL_SECONDS 可覆盖${win.degraded ? '；当前 env 值非法，已回落台账值' : ''}）`,
       'neko.self': this.peerEchoState(),
       'neko.conversations': [...this.seenConvs].slice(-50).join('、') || '（还没有）',
       'neko.tools': this.announcedTools().map((t) => t.name).join('、') || '（桥没报清单）',
@@ -302,10 +327,17 @@ export class NekoWorld implements World {
             };
           }
           for (const d of plan.dropped) this.noteDegraded(d.reason);
-          // F3 身份闸：turn/actor 必填，且只能从本轮入站 msg 的实证记录填（§1.3）。
+          // 工单二 F3（§7 下发扬闸的后半边）：链路已立而对端没申报 neko_send 就本地判
+          // 60002，绝不发 call 帧。未连接时不判——那时申报面本就空，让内核报 60006，
+          // 不把网络故障伪装成能力故障（先例 maibot runCall 同位，SECURITY-CBP §7 规则 3）。
+          if (this.connected && !this.announcedTools().some((x) => x.name === NEKO_SEND_TOOL)) {
+            this.noteDegraded('peer-not-announced:neko_send');
+            return { text: codeText(RET.CAPABILITY_UNAVAILABLE, 'capability_unavailable: 对端没有申报 neko_send，本地先拒不发 call 帧'), failed: true };
+          }
+          // 工单一 F3 身份闸：turn/actor 必填，且只能从本轮入站 msg 的实证记录填（§1.3）。
           // 没有桥消息就没有可填的身份——自报、伪造、留空都是违例，本地先拒不发。
           const ta = this.turnActor();
-          if (!ta) return { text: codeText(RET.UNKNOWN_SESSION, '本轮没有桥消息，turn/actor 无从实证'), failed: true };
+          if (!ta) return { text: codeText(RET.UNKNOWN_SESSION, '本轮没有桥消息或超出 turn 保留窗，turn/actor 无从实证'), failed: true };
           let result: string | ToolOutcome;
           try {
             const reply = await this.driver!.callTool(
@@ -372,7 +404,7 @@ export class NekoWorld implements World {
           // 轮次身份闸在 catalog 闸之前（先例 astrbot_call_tool 拒绝顺序同型，
           // _BUILD-PLAN §3.2 引用 4725feee6 world.ts:167-174）。
           const ta = this.turnActor();
-          if (!ta) return { text: codeText(RET.UNKNOWN_SESSION, '本轮没有桥消息，不能用桥侧身份执行'), failed: true };
+          if (!ta) return { text: codeText(RET.UNKNOWN_SESSION, '本轮没有桥消息或超出 turn 保留窗，不能用桥侧身份执行'), failed: true };
           const ann = this.announcedTools().find((t) => t.name === tool);
           if (!ann) return { text: `unknown tool: ${tool}（只接受 catalog 已报名）`, failed: true };
           try {
@@ -440,6 +472,7 @@ export class NekoWorld implements World {
           vars: [
             { name: 'neko.connection', description: '桥的连接与协商状态。', multiline: true },
             { name: 'neko.scope', description: '出站门、限流与两轴缺省。' },
+            { name: 'neko.window', description: 'turn 保留窗秒数与覆盖口（两端同源，工单二 F2）。' },
             { name: 'neko.self', description: '回声抑制状态与 self 声明（neko 线永久 proven:false ⇒ 常态 self-echo:off）。' },
             { name: 'neko.conversations', description: '见过的会话键。', multiline: true },
             { name: 'neko.tools', description: '对端已申报工具。', multiline: true },
@@ -467,7 +500,20 @@ export class NekoWorld implements World {
    */
   private turnActor(): { turn: string; actor: Actor } | null {
     const rec = this.lastTurn;
-    if (!rec || rec.id === '' || rec.conv === '' || rec.member.id === '') return null;
+    if (!rec) return null;
+    // 工单二 F2（决定 3）：窗长单源 = CBP-v1.json $defs/turnWindow → gen_pins →
+    // spec/pins.json → PINS.turn.ttlSeconds，缺省 300 秒；env CORTICO_TURN_TTL_SECONDS
+    // 两端同名可覆盖，坏值回落并记 degraded。超窗即清实证记录：旧 turn 不得跨窗复用
+    // （桥侧账本同窗同步过期，两端对账一致；与 dedup 的 600 秒无关）。
+    const win =
+      this.opts.turnTtlSeconds === undefined ? effectiveTurnTtlSeconds() : { ttlSeconds: this.opts.turnTtlSeconds, degraded: null };
+    if (win.degraded) this.noteDegraded(win.degraded);
+    if (this.nowFn() - rec.at > win.ttlSeconds * 1000) {
+      this.lastTurn = null;
+      this.noteDegraded('turn-expired');
+      return null;
+    }
+    if (rec.id === '' || rec.conv === '' || rec.member.id === '') return null;
     const selfId = this.driver?.peerSelf()?.id || this.cfg.selfId;
     const anon = selfId !== '' && selfId === rec.member.id ? 'self' : 'identified';
     return {
@@ -510,10 +556,23 @@ export class NekoWorld implements World {
       case 'catalog':
         this.catalog = sanitizeTools((f as CatalogFrame).tools).ok;
         return;
-      case 'call':
-        // 第一切片不开 Cortico 侧被调面（桥端工具目录只出不进）；记录不产事件。
-        this.host?.log.warn('入站 call 帧暂无被调面，已忽略', { tool: (f as { tool?: string }).tool });
+      case 'call': {
+        // F2：被调面第一切片不开（CHANGELOG 阶段二项），申报面已退空（peerToolCatalog）。
+        // 万一仍有 call 打进来，立即回 60002 capability_unavailable——静默不回帧会让
+        // 对端空等内核 30s call 超时拿 60007（FIXORDER F2 第 2 件事）。rid 已被内核
+        // idem.claim 占用，这一帧不回，同 rid 的重投也只会命中空的幂等窗口。
+        const cf = f as CallFrame;
+        const sent = this.driver?.send({
+          ...newHead('reply'),
+          t: 'reply',
+          v: 1,
+          rid: cf.rid,
+          ok: false,
+          error: err(RET.CAPABILITY_UNAVAILABLE, `capability_unavailable: Cortico 侧被调面未开，${cf.tool} 不可调`),
+        });
+        if (!sent) this.host?.log.warn('入站 call 的 60002 回帧没有发出', { tool: cf.tool });
         return;
+      }
       default:
         // reply/ack 已在内核 PendingTable 消费；tick 由 driver 处理。
         return;
@@ -541,7 +600,7 @@ export class NekoWorld implements World {
     // F3：本轮实证记录 = 这条入站 msg 帧本身（sender/conv 是 N.E.K.O 宿主实证侧值，
     // 桥从 bus metadata 取，watch.py:57）；出站 call 的 turn/actor 从这里填，
     // args 里的任何身份串一律不作数。改名与剥离 contextDelivery 在本层（pushEvent 入参 Omit 它）。
-    this.lastTurn = { id: frame.id, conv: frame.conv, member: { id: frame.sender.id, name: frame.sender.name } };
+    this.lastTurn = { id: frame.id, conv: frame.conv, member: { id: frame.sender.id, name: frame.sender.name }, at: this.nowFn() };
     const peer = this.driver?.peerSelf() ?? null;
     const { envelope, push, degraded: selfDeg } = msgToEnvelope(frame, {
       worldId: WORLD_ID,
@@ -619,15 +678,15 @@ export class NekoWorld implements World {
 export const DEFAULT_WORLD_OPTS: WorldOptions = { cfg: DEFAULTS };
 
 /**
- * 本端上报给桥的工具目录（CBP hello.tools / catalog，G5 对账自报腿）。
- * risk 六值逐字 cortico types.ts:202 @836238311（内核 frames.ts:13 同表）；
- * send 的 confirm_required 位反映出站门状态（先例 astrbot peerToolCatalog 同型）。
+ * 本端上报给桥的工具目录（CBP hello.tools / ready.tools，G5 对账自报腿）。
+ * F2：被调面第一切片不开——入站 call 只会被回 60002（onFrame 的 call 分支），
+ * 所以这里必须申报空集。申报而不服务 = 对端每次误调空等 30s 拿 60007，线上
+ * 申报面与实供面失真（FIXORDER F2；交集推导口径同 spec/SECURITY-CBP.md §7
+ * 对 maibot 同类缺陷的裁决）。阶段二开被调面时，按当时的实证面把四支加回
+ * 本表（名字见 TOOL_DECLS；risk 六值逐字 cortico types.ts:202 @836238311，
+ * 内核 frames.ts:13 同表；send 的 confirm_required 位反映出站门状态，
+ * 先例 astrbot peerToolCatalog 同型）。
  */
-export function peerToolCatalog(cfg: NekoBridgeConfig): ToolAnn[] {
-  return [
-    { name: 'neko_send_message', risk: 'write', confirm_required: !cfg.egress },
-    { name: 'neko_status', risk: 'read', confirm_required: false },
-    { name: 'neko_history', risk: 'read', confirm_required: false },
-    { name: 'neko_peer_call', risk: 'write', confirm_required: true },
-  ];
+export function peerToolCatalog(_cfg: NekoBridgeConfig): ToolAnn[] {
+  return [];
 }

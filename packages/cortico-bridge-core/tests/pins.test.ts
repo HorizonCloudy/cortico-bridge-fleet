@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PINS, loadPins } from '../src/pins.js';
+import { PINS, effectiveTurnTtlSeconds, loadPins } from '../src/pins.js';
 
 /** the live fleet spec file the module itself reads at init (dist/tests -> 4 up = fleet root) */
 const SPEC_PINS = fileURLToPath(new URL('../../../../spec/pins.json', import.meta.url));
@@ -37,6 +37,8 @@ function goodCaps(): Record<string, unknown> {
       },
     },
     vocab: { cbp: { caps: ['images'] } },
+    // 工单二 F2：turn 段与 caps 同为严读段，夹具缺它 loadPins 就抛。
+    turn: { ttl_seconds: 37 },
   };
 }
 
@@ -149,4 +151,42 @@ test('a well-formed external file still overrides every caps line and the vocabu
   const p = loadPins(fixture(g));
   assert.deepEqual(p.caps.neko, { frame_bytes: 999, text_bytes: null, media_bytes: null, action: 'host-ask' });
   assert.deepEqual(p.capsVocab, ['images', 'notices']);
+});
+
+// ── 工单二 F2：turn 保留窗同源件 ──────────────────────────────────────────────
+
+test('PINS.turn.ttlSeconds equals the spec/pins.json turn section (工单二 F2, no package-side copy)', () => {
+  const j = JSON.parse(readFileSync(SPEC_PINS, 'utf8')) as { turn: { ttl_seconds: number } };
+  assert.equal(PINS.turn.ttlSeconds, j.turn.ttl_seconds);
+  assert.equal(PINS.turn.ttlSeconds, 300, '缺省窗 300 秒（用户 2026-11-17 拍板；源在 CBP-v1.json $defs/turnWindow）');
+});
+
+test('loadPins throws when the turn section is missing or malformed (工单二 F2)', () => {
+  const base = () => JSON.parse(JSON.stringify(goodCaps())) as Record<string, unknown>;
+  const noTurn = base();
+  delete noTurn.turn;
+  assert.throws(() => loadPins(fixture(noTurn)), /turn/, '缺 turn 段必须抛，不静默兜底');
+  const zero = base() as { turn: { ttl_seconds: number } };
+  zero.turn = { ttl_seconds: 0 };
+  assert.throws(() => loadPins(fixture(zero)), /ttl_seconds/, '0 秒窗必须抛');
+  const fractional = base() as { turn: { ttl_seconds: number } };
+  fractional.turn = { ttl_seconds: 2.5 };
+  assert.throws(() => loadPins(fixture(fractional)), /ttl_seconds/, '非整数秒窗必须抛');
+});
+
+test('effectiveTurnTtlSeconds applies the env override; a malformed override degrades, never silently', () => {
+  const prev = process.env.CORTICO_TURN_TTL_SECONDS;
+  try {
+    delete process.env.CORTICO_TURN_TTL_SECONDS;
+    assert.deepEqual(effectiveTurnTtlSeconds(), { ttlSeconds: PINS.turn.ttlSeconds, degraded: null });
+    process.env.CORTICO_TURN_TTL_SECONDS = '42';
+    assert.deepEqual(effectiveTurnTtlSeconds(), { ttlSeconds: 42, degraded: null });
+    process.env.CORTICO_TURN_TTL_SECONDS = 'not-a-number';
+    const bad = effectiveTurnTtlSeconds();
+    assert.equal(bad.ttlSeconds, PINS.turn.ttlSeconds, '坏值回落台账值');
+    assert.equal(bad.degraded, 'turn-ttl-env-invalid', '坏值必须带回 degraded 原因（与桥侧同 slug）');
+  } finally {
+    if (prev === undefined) delete process.env.CORTICO_TURN_TTL_SECONDS;
+    else process.env.CORTICO_TURN_TTL_SECONDS = prev;
+  }
 });

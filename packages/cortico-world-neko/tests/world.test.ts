@@ -5,15 +5,18 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RET, err, type Frame, type ToolAnn } from '@horizoncloudy/cortico-bridge-core';
 import type { Actor, MsgFrame, SelfDecl } from '@horizoncloudy/cortico-bridge-core/frames';
+import WebSocket from 'ws';
 import type { EventEnvelope, Logger, WorldHost } from 'cortico/core/types.ts';
 import { BRIDGE_DESCRIBE, NEKO_WORLD } from '../src/definition.ts';
 import type { BridgeLike, WorldHandlers } from '../src/world.ts';
-import { DEFAULTS, type NekoBridgeConfig } from '../src/config.ts';
-import { NekoWorld } from '../src/world.ts';
+import { CONFIG_GROUP, DEFAULTS, normalizeConfig, purgeLegacyTokenSection, type NekoBridgeConfig } from '../src/config.ts';
+import { NekoWorld, peerToolCatalog } from '../src/world.ts';
 
 const log: Logger = { trace() {}, debug() {}, info() {}, warn() {}, error() {}, emit() {}, child() { return log; } };
 type PushIn = Parameters<WorldHost['pushEvent']>[0];
@@ -45,16 +48,27 @@ interface Call {
 function makeWorld(
   cfg: Partial<NekoBridgeConfig>,
   behavior?: { reply?: Frame; reject?: (c: Call) => unknown; peerSelf?: SelfDecl | null; peerTools?: ToolAnn[] },
+  inject?: { authToken?: string; turnTtlSeconds?: number; now?: () => number },
 ) {
   let handlers!: WorldHandlers;
+  let authTokenSeen: string | undefined;
   const calls: Call[] = [];
+  const sent: Frame[] = [];
   const world = new NekoWorld({
     cfg,
-    makeDriver: (_cfg, _log, h) => {
+    authToken: inject?.authToken,
+    turnTtlSeconds: inject?.turnTtlSeconds,
+    now: inject?.now,
+    makeDriver: (_cfg, _log, h, auth) => {
       handlers = h;
+      authTokenSeen = auth;
       const driver: BridgeLike = {
         start: async () => {},
         stop: () => {},
+        send: (f) => {
+          sent.push(f);
+          return true;
+        },
         effectiveCaps: () => ['images', 'notices', 'tools'],
         listenPort: 0,
         peerSelf: () => behavior?.peerSelf ?? null,
@@ -69,7 +83,7 @@ function makeWorld(
       return driver;
     },
   });
-  return { world, getHandlers: () => handlers, calls };
+  return { world, getHandlers: () => handlers, calls, sent, getAuthToken: () => authTokenSeen };
 }
 
 const cbpMsg = (over: Partial<MsgFrame>): MsgFrame => ({
@@ -410,4 +424,323 @@ test('peer self proven:true 时才抑制回声：同 id 入站 → .self + deliv
   assert.equal(msgs[0]?.e.type, 'neko.message.self');
   assert.deepEqual(msgs[0]?.opts, { deliver: false });
   assert.equal('contextDelivery' in (msgs[0]!.e as object), false, 'pushEvent 入参不带 contextDelivery');
+});
+
+// ── F2/F3（FIXORDER 2026-11-17 批次）：申报面退空、入站 call 秒回 60002、token 走 secret ──
+
+test('F2：被调面未开 ⇒ peerToolCatalog 申报空集，BridgeDriver 构造仍走单源', () => {
+  assert.deepEqual(peerToolCatalog({ ...DEFAULTS, egress: true }), [], '四支名字不得再进 hello/ready tools[]');
+  const src = readFileSync(fileURLToPath(new URL('../src/world.ts', import.meta.url)), 'utf8');
+  assert.match(src, /tools:\s*peerToolCatalog\(/, 'tools 位保持单源，退化只发生在目录函数里');
+});
+
+test('F2：真握手下 ready.tools 为空集；入站 call 远小于 30s 拿到 60002 回帧', async () => {
+  // FIXORDER F2 验收两条都落在真内核驱动 + 真 socket 上；端口避开 39701/39711 在册位。
+  const port = 39741;
+  const world = new NekoWorld({ cfg: { ...DEFAULTS, enabled: true, host: '127.0.0.1', port } });
+  const { host } = fakeHost();
+  await world.start(host);
+  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+  type Wire = { t?: string; tools?: { name: string }[]; rid?: string; ok?: boolean; error?: { code?: number } };
+  const wire: Wire[] = [];
+  ws.on('message', (d: unknown) => wire.push(JSON.parse(String(d)) as Wire));
+  const until = async (pred: () => boolean, ms: number, what: string) => {
+    const t0 = Date.now();
+    while (!pred()) {
+      if (Date.now() - t0 > ms) throw new Error(`超时等不到：${what}`);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
+  try {
+    await new Promise<void>((res, rej) => {
+      ws.on('open', () => res());
+      ws.on('error', (e: unknown) => rej(e));
+    });
+    const ts = Math.floor(Date.now() / 1000);
+    ws.send(JSON.stringify({
+      v: 1, t: 'hello', id: 'h-f2', ts,
+      agent: { name: 'negctl-bridge', version: '0', sha: '' },
+      v_support: [1], caps: ['images', 'notices', 'tools'], tools: [],
+      self: { id: 'peer-1', name: 'peer', proven: false },
+    }));
+    await until(() => wire.some((f) => f.t === 'ready'), 5000, 'ready 帧');
+    const ready = wire.find((f) => f.t === 'ready')!;
+    const four = ['neko_send_message', 'neko_status', 'neko_history', 'neko_peer_call'];
+    const names = (ready.tools ?? []).map((x) => x.name);
+    for (const n of four) assert.ok(!names.includes(n), `ready.tools 不得含 ${n}（申报而不服务=F2 违例）`);
+    // 先立 turn 记录，再打 call：内核认得 turn，回帧必须由被调面分支立即给出。
+    // 同一条 TCP 上 msg 先于 call 送达，内核 handleRaw 同步记账，无需等待位。
+    ws.send(JSON.stringify({
+      v: 1, t: 'msg', id: 'm-f2', ts, conv: 'conv-f2',
+      sender: { id: 'user-f2', name: 'u' }, kind: 'group', segments: [], raw: {},
+    }));
+    const t0 = Date.now();
+    ws.send(JSON.stringify({
+      v: 1, t: 'call', id: 'k-f2', ts, rid: 'k-f2', tool: 'neko_status', args: {}, turn: 'm-f2',
+      actor: { platform: 'neko', conv: 'conv-f2', member: { id: 'user-f2', name: 'u' }, anon: 'identified' },
+    }));
+    await until(() => wire.some((f) => f.t === 'reply' && f.rid === 'k-f2'), 5000, '60002 回帧');
+    const reply = wire.find((f) => f.t === 'reply' && f.rid === 'k-f2')!;
+    const elapsedMs = Date.now() - t0;
+    assert.ok(elapsedMs < 3000, `回帧耗时必须远小于内核 30s call 超时，实测 ${elapsedMs}ms`);
+    assert.equal(reply.ok, false);
+    assert.equal(reply.error?.code, 60002, '入站 call 在被调面未开期必须立即 60002 capability_unavailable');
+  } finally {
+    ws.close();
+    await world.stop();
+  }
+});
+
+test('F3：create() 只从 ctx.secret(CORTICO_BRIDGE_TOKEN) 取凭据；配置面三处删净', () => {
+  const seen: string[] = [];
+  const ctx = {
+    cfg: { ...DEFAULTS },
+    secret: (name: string) => {
+      seen.push(name);
+      return 'sekret-value';
+    },
+    storeSecret: () => {},
+    persist: () => {},
+  };
+  const inst = NEKO_WORLD.create(ctx as never);
+  assert.ok(inst && typeof inst.tools === 'function', 'create() 必须返回 World 实例');
+  assert.deepEqual(seen, ['CORTICO_BRIDGE_TOKEN'], '凭据只许走 ctx.secret，键名与桥侧 CORTICO_BRIDGE_TOKEN 对称');
+  assert.equal('token' in DEFAULTS, false, 'DEFAULTS 里不得再有 token');
+  const leaky = { token: 'leak' } as unknown as Partial<NekoBridgeConfig>;
+  assert.equal('token' in normalizeConfig(leaky), false, 'normalizeConfig 必须丢弃 worlds.neko.token');
+  const panelKeys = Object.keys((CONFIG_GROUP.schema.properties ?? {}) as Record<string, unknown>);
+  assert.ok(!panelKeys.includes('worlds.neko.token'), '配置面板项里不得再有 token 字段');
+});
+
+test('F3：secret 值经 WorldOptions 注入驱动构造；cfg.token 通道已删', async () => {
+  const { world, getAuthToken } = makeWorld(DEFAULTS, undefined, { authToken: 'sekret-value' });
+  const { host } = fakeHost();
+  await world.start(host);
+  assert.equal(getAuthToken(), 'sekret-value', 'makeDriver 注入位必须收到 create() 取回的 secret 值');
+  const src = readFileSync(fileURLToPath(new URL('../src/world.ts', import.meta.url)), 'utf8');
+  assert.match(src, /authToken:\s*this\.opts\.authToken/, '真实 BridgeDriver 的 authToken 只许来自 opts.authToken');
+  assert.doesNotMatch(src, /cfg\.token/, 'world.ts 不得再读配置串里的 token');
+});
+
+// ── 工单二 F1–F6（FIXORDER2.md 2026-11-17，批内修 + 一次性清理 + turn 窗口可调） ──
+
+/** 引擎落盘同款的规范化 config.json 夹具；`root` 与 `canonical` 一一对应。 */
+function f1Fixture(dir: string, tokenValue: unknown): { root: Record<string, unknown>; canonical: string } {
+  const root: Record<string, unknown> = {
+    version: 1,
+    timezone: 'UTC',
+    worlds: {
+      maibot: { enabled: true, port: 39702 },
+      neko: { enabled: true, role: 'listen', token: tokenValue, egress: false },
+    },
+  };
+  const canonical = `${JSON.stringify(root, null, 2)}\n`;
+  writeFileSync(join(dir, 'config.json'), canonical, 'utf8');
+  return { root, canonical };
+}
+
+function loggingSinkHost() {
+  const sink: string[] = [];
+  const events: Recorded[] = [];
+  const log: Logger = { trace() {}, debug() {}, info() {}, warn(m: string) { sink.push(String(m)); }, error() {}, emit() {}, child() { return log; } };
+  const host: WorldHost = {
+    pushEvent: async (e: PushIn, opts?: Recorded['opts']) => {
+      events.push({ e, opts });
+      return { cursor: events.length, origin: e.origin ?? 'external', ...e } as unknown as EventEnvelope;
+    },
+    store: { get: () => undefined, latestCursor: () => 0, range: () => [], around: () => [], grep: () => [] },
+    modelFacts: { model: () => 'fake', accepts: () => false, contextWindow: () => undefined },
+    blob: () => null,
+    drainPendingEvents: async () => [],
+    log,
+  } as unknown as WorldHost;
+  return { host, sink, events };
+}
+
+function notesWorld(notes: string[]) {
+  return new NekoWorld({
+    cfg: DEFAULTS,
+    purgeNotes: notes,
+    makeDriver: () => ({
+      start: async () => {},
+      stop: () => {},
+      send: () => true,
+      callTool: async () => {
+        throw new Error('unused');
+      },
+      peerSelf: () => null,
+      effectiveCaps: () => [],
+      peerTools: () => [],
+      listenPort: 0,
+    }),
+  });
+}
+
+test('F1：带明文 token 残键的旧 config，装载后残键消失、其余字节逐行不动、日志只记键名', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cbp-f1-'));
+  const { canonical } = f1Fixture(dir, 'sekret-plain-value');
+  const cfgSection: Record<string, unknown> = { enabled: true, role: 'listen', token: 'sekret-plain-value', egress: false };
+  const notes = purgeLegacyTokenSection(dir, cfgSection);
+  const after = readFileSync(join(dir, 'config.json'), 'utf8');
+  assert.ok(!after.includes('sekret-plain-value'), '值必须随键一起消失');
+  assert.equal(after, canonical.replace('      "token": "sekret-plain-value",\n', ''), '只删那一行，其余字节不动');
+  assert.deepEqual(Object.keys(cfgSection), ['enabled', 'role', 'egress'], '活配置对象同步删键');
+  const joined = notes.join('\n');
+  assert.match(joined, /worlds\.neko\.token/, '日志记键名');
+  assert.ok(!joined.includes('sekret-plain-value'), '日志不得记值');
+  assert.match(joined, /泄露|轮换/, '非空旧值必须带泄露处置提示');
+  const { host, sink } = loggingSinkHost();
+  await notesWorld(notes).start(host);
+  assert.ok(sink.some((s) => s.includes('worlds.neko.token')), 'start() 把提示回放进宿主日志');
+  assert.ok(!sink.some((s) => s.includes('sekret-plain-value')), '宿主日志同样不出现值');
+});
+
+test('F1：空串残键照删键，但不写泄露提示', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cbp-f1-'));
+  f1Fixture(dir, '');
+  const notes = purgeLegacyTokenSection(dir, { enabled: true, token: '' });
+  assert.equal(notes.length, 1, '只有一条删键提示');
+  assert.doesNotMatch(notes.join(''), /泄露|轮换/, '空值不构成泄露断言');
+  assert.ok(!readFileSync(join(dir, 'config.json'), 'utf8').includes('"token"'), '键本身照删');
+});
+
+test('F1：幂等——第二次装载零读零写', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cbp-f1-'));
+  f1Fixture(dir, 'sekret-plain-value');
+  purgeLegacyTokenSection(dir, { token: 'sekret-plain-value' });
+  const before = statSync(join(dir, 'config.json'));
+  const bytes = readFileSync(join(dir, 'config.json'));
+  const again = (JSON.parse(bytes.toString('utf8')).worlds.neko ?? {}) as Record<string, unknown>;
+  const notes2 = purgeLegacyTokenSection(dir, again);
+  const after = statSync(join(dir, 'config.json'));
+  assert.equal(notes2.length, 0, '第二次调用不产生任何提示');
+  assert.equal(after.mtimeMs, before.mtimeMs, '第二次装载不得写文件');
+  assert.ok(Buffer.compare(readFileSync(join(dir, 'config.json')), bytes) === 0);
+});
+
+test('F1：config.json 读不到或坏 JSON 就不写，残键留待下次装载', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cbp-f1-'));
+  const missing = purgeLegacyTokenSection(dir, { token: 'x' });
+  assert.match(missing.join(''), /不写|下次装载/);
+  assert.equal(existsSync(join(dir, 'config.json')), false, '不得凭空造 config.json');
+  writeFileSync(join(dir, 'config.json'), 'not-json{', 'utf8');
+  const corrupt = purgeLegacyTokenSection(dir, { token: 'x' });
+  assert.match(corrupt.join(''), /不写|下次装载/);
+  assert.equal(readFileSync(join(dir, 'config.json'), 'utf8'), 'not-json{', '坏文件原样保留');
+});
+
+test('F1：create() 装载路径真调清理，且不碰 secret 通道', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'cbp-f1-'));
+  f1Fixture(dir, 'sekret-plain-value');
+  const cfgSection: Record<string, unknown> = { ...DEFAULTS, token: 'sekret-plain-value' };
+  const seen: string[] = [];
+  const inst = NEKO_WORLD.create({
+    cfg: cfgSection,
+    botDir: dir,
+    secret: (name: string) => {
+      seen.push(name);
+      return '';
+    },
+  } as never);
+  assert.ok(inst && typeof inst.tools === 'function');
+  assert.deepEqual(seen, ['CORTICO_BRIDGE_TOKEN'], '清理不得另开凭据通道');
+  assert.equal('token' in cfgSection, false, 'create() 必须同步清活配置残键');
+  assert.ok(!readFileSync(join(dir, 'config.json'), 'utf8').includes('sekret-plain-value'));
+});
+
+test('F2：lastTurn 按同源窗口过期——超窗出站回 60004，不动桥', async () => {
+  let t = 1_000_000;
+  const { world, calls, getHandlers } = makeWorld({ ...DEFAULTS, egress: true }, undefined, { turnTtlSeconds: 300, now: () => t });
+  const { host } = fakeHost();
+  await world.start(host);
+  getHandlers().onFrame(cbpMsg({ id: 'turn-exp' }));
+  t += 299_000;
+  const ok = await world.tools()[0]!.handler({ conv: 'c', text: 't' }, { role: 'p', log } as never);
+  assert.match(String(ok), /submitted/, '窗内出站正常');
+  t += 2_000; // 301 s > 300 s
+  const r = await world.tools()[0]!.handler({ conv: 'c', text: 't2' }, { role: 'p', log } as never);
+  assert.match(typeof r === 'string' ? '' : r.text, /60004/);
+  assert.match(typeof r === 'string' ? '' : r.text, /保留窗/);
+  assert.equal(calls.length, 1, '超窗后一帧 call 都不许多发');
+  const peer = await world.tools()[3]!.handler({ tool: 'ping' }, { role: 'p', log } as never);
+  assert.match(typeof peer === 'string' ? '' : peer.text, /60004/, 'peer_call 同受过期闸');
+  assert.match(world.envPromptVars()['neko.degraded'] ?? '', /turn-expired/, '过期记降级位');
+});
+
+test('F2：提示词窗口位读数来自同源，env 覆盖即读生效、坏值明说回落', async () => {
+  const prev = process.env.CORTICO_TURN_TTL_SECONDS;
+  try {
+    delete process.env.CORTICO_TURN_TTL_SECONDS;
+    const { world } = makeWorld(DEFAULTS);
+    const { host } = fakeHost();
+    await world.start(host);
+    const w1 = world.envPromptVars()['neko.window'] ?? '';
+    assert.match(w1, /300 秒/);
+    assert.match(w1, /CORTICO_TURN_TTL_SECONDS/);
+    process.env.CORTICO_TURN_TTL_SECONDS = '42';
+    assert.match(world.envPromptVars()['neko.window'] ?? '', /42 秒/, 'env 覆盖即读生效');
+    process.env.CORTICO_TURN_TTL_SECONDS = 'nope';
+    assert.match(world.envPromptVars()['neko.window'] ?? '', /回落/, '坏值必须明说回落');
+  } finally {
+    if (prev === undefined) delete process.env.CORTICO_TURN_TTL_SECONDS;
+    else process.env.CORTICO_TURN_TTL_SECONDS = prev;
+  }
+});
+
+test('F2：world.ts 的窗口走内核读数口，不写死数字、不挂 dedup', () => {
+  const src = readFileSync(fileURLToPath(new URL('../src/world.ts', import.meta.url)), 'utf8');
+  assert.match(src, /effectiveTurnTtlSeconds\(\)/, '窗长必须走内核同源读数');
+  assert.doesNotMatch(src, /600_000/, '不得把 dedup 的 600 秒搬进 world');
+});
+
+test('F3（工单二）：链路已立而对端没申报 neko_send ⇒ 本地 60002，不发 call 帧', async () => {
+  const { world, calls, getHandlers } = makeWorld({ ...DEFAULTS, egress: true });
+  const { host } = fakeHost();
+  await world.start(host);
+  const h = getHandlers();
+  h.onState({ role: 'listen', connected: true, peersReady: 1 });
+  h.onFrame(cbpMsg({ id: 'turn-ann' }));
+  const r = await world.tools()[0]!.handler({ conv: 'c', text: 't' }, { role: 'p', log } as never);
+  assert.match(typeof r === 'string' ? '' : r.text, /60002 capability_unavailable/);
+  assert.equal(calls.length, 0, '未申报能力绝不发 call 帧（§7 规则 3）');
+});
+
+test('F3（工单二）：对端申报了 neko_send 则出站照常', async () => {
+  const ann: ToolAnn[] = [{ name: 'neko_send', risk: 'write', confirm_required: true }];
+  const { world, calls, getHandlers } = makeWorld({ ...DEFAULTS, egress: true }, { peerTools: ann });
+  const { host } = fakeHost();
+  await world.start(host);
+  const h = getHandlers();
+  h.onState({ role: 'listen', connected: true, peersReady: 1 });
+  h.onFrame(cbpMsg({ id: 'turn-ann2' }));
+  const r = await world.tools()[0]!.handler({ conv: 'c', text: 't' }, { role: 'p', log } as never);
+  assert.match(String(r), /submitted/);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.tool, 'neko_send');
+});
+
+test('F3（工单二）：未连接时不判申报闸——空申报不误伤 60002', async () => {
+  const { world, calls, getHandlers } = makeWorld({ ...DEFAULTS, egress: true });
+  const { host } = fakeHost();
+  await world.start(host);
+  getHandlers().onFrame(cbpMsg({ id: 'turn-off' })); // onState(connected:true) 不发
+  const r = await world.tools()[0]!.handler({ conv: 'c', text: 't' }, { role: 'p', log } as never);
+  assert.match(String(r), /submitted/, '未连接路径照旧交给驱动，由内核报网络类错误');
+  assert.equal(calls.length, 1);
+});
+
+test('F4/F6：文档口径闸——README 枚举补齐、有 F 编号图例、无写死条数、无禁写句', () => {
+  const rm = readFileSync(fileURLToPath(new URL('../README.md', import.meta.url)), 'utf8');
+  assert.match(rm, /60002 capability_unavailable/, 'README 枚举必须含 60002（工单二 F4）');
+  assert.match(rm, /60004 unknown_session/, 'README 枚举必须含 60004（工单二 F4）');
+  assert.match(rm, /F 编号图例/, 'F 号必须带图例（工单二 F4）');
+  assert.match(rm, /CORTICO_TURN_TTL_SECONDS/, 'turn 窗口口径写进 README（工单二 F2）');
+  assert.doesNotMatch(rm, /\d+ pass \/ \d+ fail/, '不得写死测试条数（X3 §2.5）');
+  assert.doesNotMatch(rm, /config\.json 不再落这个键/, '现在时态的迁移断言禁写（X3 §2.6）');
+  const env = readFileSync(fileURLToPath(new URL('../src/ENV_PROMPT.md', import.meta.url)), 'utf8');
+  assert.doesNotMatch(env, /协商成功/, '禁写「能力协商成功」（X3 §2.1）');
+  assert.match(env, /neko\.window/, '窗口位进提示词模板');
+  const desc = readFileSync(fileURLToPath(new URL('../describe.json', import.meta.url)), 'utf8');
+  assert.doesNotMatch(desc, /协商成功/);
+  assert.match(desc, /60002/, 'describe 写出申报闸错误码（工单二 F4）');
 });

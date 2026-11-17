@@ -18,8 +18,8 @@ CHANGELOG 两件；describe 闸只作用 `kind:"world"` 包（tests/_lib/release
 | `./driver` | driver | WS dial/listen 双角色（driver.ts:41），退避 1000ms×2 封顶（driver.ts:7），`start()` 永不 reject |
 | `./negotiate` | negotiate | caps 交集、v 门禁 60001、tools[] risk/confirm_required |
 | `./errors` | errors | v12 四位基座 + 桥段 60001..60008（errors.ts:5,23,30）+ 四家族翻译 |
-| `./correlate` | correlate | rid/echo 在飞表 + tick 活性 |
-| `./pins` | pins | 版本钉快照；`spec/pins.json` 是 fleet 唯一来源（pins.ts:287-288 端口即例） |
+| `./correlate` | correlate | rid/echo 在飞表 + tick 活性；TurnLedger 默认窗读同源 turn（工单二 F2，不再挂 dedup 600 秒） |
+| `./pins` | pins | 版本钉快照；`spec/pins.json` 是 fleet 唯一来源（pins.ts:287-288 端口即例）；turn 段严读 + `effectiveTurnTtlSeconds()` env 覆盖（工单二 F2） |
 
 另有 `idempotency`（rid→reply 缓存，§5.1）与 `redact`（凭证剥离，§3.4）经 `.` 面导出。
 src 共 12 个模块 2424 行。

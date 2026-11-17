@@ -10,6 +10,10 @@ F13（SECURITY-CBP §4）：`validate` 同时闸 caps 段与 vocab.cbp.caps—�
 action 非三值、非 null 值缺「文件:行」来源、词表与 spec/CBP-v1.json 不一致，都非零退出；
 写模式把 vocab.cbp.caps 从 CBP-v1.json $defs.caps 生成回 pins.json（caps 六数只能带证件手钉）。
 
+工单二 F2：turn 段（ttl_seconds）同路由 CBP-v1.json $defs.turnWindow.const 生成；
+缺段、坏值、与源不等值都非零退出。TS 侧经 cortico-bridge-core/src/pins.ts 读该段，
+Python 侧经 gen_table.py 落 cbp_table.py——两端读同一个源值。
+
 只读边界：仅调用 `git rev-parse HEAD`；不 fetch、不改远端。
 """
 import argparse
@@ -31,6 +35,36 @@ CITE_RE = re.compile(r"[A-Za-z0-9_./\\-]+:\d+")  # 来源必须长成 文件:行
 def load_pins(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def schema_turn_ttl(cbp_file: Path):
+    """turn 窗生成源：spec/CBP-v1.json $defs.turnWindow.const（工单二 F2 单源件）。"""
+    try:
+        j = json.loads(cbp_file.read_text(encoding="utf-8"))
+        v = j["$defs"]["turnWindow"]["const"]
+        if isinstance(v, bool) or not isinstance(v, int) or v <= 0:
+            return None
+        return v
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+
+
+def validate_turn(pins: dict, spec_dir: Path) -> list[str]:
+    """工单二 F2 闸：turn.ttl_seconds 必须存在且与帧表源等值（漂移即红，两端同源）。"""
+    errs = []
+    src = schema_turn_ttl(spec_dir / "CBP-v1.json")
+    if src is None:
+        errs.append(f"读不到 {spec_dir / 'CBP-v1.json'} 的 $defs.turnWindow.const（必须正整数）")
+        return errs
+    turn = pins.get("turn")
+    if not isinstance(turn, dict):
+        errs.append("缺顶层 turn 段（工单二 F2 单源件；重跑 gen_pins.py 生成）")
+    elif turn.get("ttl_seconds") != src:
+        errs.append(
+            f"turn.ttl_seconds={turn.get('ttl_seconds')!r} 与帧表源 {src} 不一致"
+            "（改源后重跑 gen_pins.py；不许手抄第二份）"
+        )
+    return errs
 
 
 def schema_caps_vocab(cbp_file: Path):
@@ -123,6 +157,7 @@ def validate(pins: dict, spec_dir: Path = PINS_DEFAULT.parent) -> list[str]:
     if pins.get("schema") != "cortico-bridge-fleet/pins/1":
         errs.append("schema 字段不符")
     errs += validate_caps(pins, spec_dir)
+    errs += validate_turn(pins, spec_dir)
     for key, e in pins["repos"].items():
         if not SHA9.match(e.get("sha9", "")):
             errs.append(f"repos.{key}.sha9 非 9 位十六进制: {e.get('sha9')!r}")
@@ -167,7 +202,7 @@ def main(argv=None) -> int:
     pins = load_pins(a.pins)
     # 写模式生成侧（F13）：vocab.cbp.caps 从 spec/CBP-v1.json $defs.caps 重新生成；
     # caps 六数不自动生成——那是证件逐条钉的取值（notes 文件:行），生成侧无机器可推来源。
-    vocab_drift = False
+    vocab_drift = turn_drift = False
     if not (a.check or a.self_test):
         schema = schema_caps_vocab(a.pins.parent / "CBP-v1.json")
         if schema is not None:
@@ -175,6 +210,10 @@ def main(argv=None) -> int:
             if cbp_vocab.get("caps") != schema:
                 cbp_vocab["caps"] = schema
                 vocab_drift = True
+        turn_src = schema_turn_ttl(a.pins.parent / "CBP-v1.json")
+        if turn_src is not None and pins.get("turn") != {"ttl_seconds": turn_src}:
+            pins["turn"] = {"ttl_seconds": turn_src}  # 键序固定，产物可逐字节重放
+            turn_drift = True
     errs = validate(pins, a.pins.parent)
     if errs and not a.self_test:
         print("pins.json 结构错误:\n  " + "\n  ".join(errs))
@@ -204,13 +243,16 @@ def main(argv=None) -> int:
             "null 值缺未测理由": lambda p: p["caps"]["notes"].pop("maibot_frame_bytes"),
             "词表整段缺失": lambda p: p["vocab"]["cbp"].pop("caps"),
             "词表与 schema 漂移": lambda p: p["vocab"]["cbp"].__setitem__("caps", ["images"]),
+            "turn 段缺失": lambda p: p.pop("turn"),
+            "turn 与帧表源漂移": lambda p: p.__setitem__("turn", {"ttl_seconds": 600}),
         }
         for what, mutate in bad_cases.items():
             q = copy.deepcopy(pins)
             mutate(q)
-            errs = validate_caps(q, PINS_DEFAULT.parent)
-            assert errs, f"caps 反例未被抓到: {what}"
+            errs = validate_caps(q, PINS_DEFAULT.parent) + validate_turn(q, PINS_DEFAULT.parent)
+            assert errs, f"caps/turn 反例未被抓到: {what}"
         assert schema_caps_vocab(PINS_DEFAULT.parent / "CBP-v1.json") == pins["vocab"]["cbp"]["caps"]
+        assert schema_turn_ttl(PINS_DEFAULT.parent / "CBP-v1.json") == pins["turn"]["ttl_seconds"]
         print(f"SELF-TEST OK: {len(pins['repos'])} 仓、{len(pins['ports'])} 端口、{pins['vocab']['maibot']['capabilities_len']} 能力名、caps 反例 {len(bad_cases)} 组、自检断言 5 组")
         return 0
 
@@ -231,7 +273,7 @@ def main(argv=None) -> int:
             return 1
         print(f"--check OK: {len(pins['repos'])} 仓 sha9 一致；caps {len([k for k in pins['caps'] if k != 'notes'])} 线 + vocab.cbp.caps {len(pins['vocab']['cbp']['caps'])} 名（闸在 validate，缺段/缺源到不了这里）")
         return 0
-    if not fresh and not vocab_drift:
+    if not fresh and not vocab_drift and not turn_drift:
         print("无漂移，pins.json 未改动。" + (f"（另有 {len(problems)} 条不可读）" if problems else ""))
         return 0 if not problems else 1
     for k, s in fresh.items():
@@ -241,6 +283,7 @@ def main(argv=None) -> int:
         f.write("\n")
     print("已刷新 " + ", ".join(f"{k}->{s}" for k, s in fresh.items())
           + ("；vocab.cbp.caps 已按 CBP-v1.json 重新生成" if vocab_drift else "")
+          + ("；turn.ttl_seconds 已按 $defs/turnWindow 重新生成" if turn_drift else "")
           + "。行号引用需按新 sha 复核后方可写码。")
     return 0
 

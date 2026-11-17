@@ -3,6 +3,7 @@
 
 {{neko.connection}}
 {{neko.scope}}
+{{neko.window}}
 {{neko.self}}
 
 你能看到的会话：
@@ -20,8 +21,10 @@ consent 等待态（首启闸没放行前消息进不去，这是正常态不是
   （conversation_id，见 meta.conv / senderKey）。
 - 出站门（egress）关着时该工具直接回 60005 door_closed —— 这是配置状态，不是失败重试的理由。
 - 每条出站调用都钉在触发本轮的那条入站消息上（帧里的 turn/actor 由系统从实证记录填，
-  不接受自报）。本轮没有桥消息时 neko_send_message / neko_peer_call 回 60004
-  unknown_session —— 这是身份闸，不是网络故障。
+  不接受自报）。本轮没有桥消息、或那条消息已超出 turn 保留窗（见上）时，
+  neko_send_message / neko_peer_call 回 60004 unknown_session —— 这是身份闸，不是网络故障。
+- 对端桥没申报 neko_send 时，neko_send_message 本地回 60002 capability_unavailable
+  且一帧不发（申报面闸，SECURITY-CBP §7）；链路没立起来时不报这个码，报 60006。
 - 回执写 60007 send_uncertain 时，消息可能已经发出：先向对端确认，不要盲目重发。
 - 60003 payload_too_large 是本地先拒（上限 = caps.neko.frame_bytes，单一来源
   spec/pins.json），重试同一载荷必然同样失败；把内容拆小或去掉内联图再发。
@@ -32,8 +35,9 @@ consent 等待态（首启闸没放行前消息进不去，这是正常态不是
 
 ## 协商与降级
 
-- 「caps」= 与桥协商后的能力交集（images/notices/tools 为申报上限；self_echo 不申报：
-  N.E.K.O 总线面没有实证 self 的取值口，本线永久 proven:false）。
+- 「caps」= 协商后真正生效的交集，以运行时读数为准。images/notices/tools 只是本端申报上限，
+  交集可能更小甚至为空（词表对齐前，申报面不等于交集，别把上限当结果）。self_echo 不申报：
+  N.E.K.O 总线面没有实证 self 的取值口，本线永久 proven:false。
 - self 声明：桥在 hello/ready 申报 `{id,name,proven:false}`。proven:false ⇒ 不做回声抑制，
   同 id 入站照常投递，`neko.self` 常驻 `self-echo:off`（显式降级，不是故障）。
 - 保真降级记录：
@@ -43,4 +47,6 @@ consent 等待态（首启闸没放行前消息进不去，这是正常态不是
 `external-url-image` = 外部 URL 图被出站计划拒；`no-upload-api` = audio/video/file 段被拒；
 `model-rejects:<mime>` = 当前模型不吃该 MIME，附件没进上下文；
 `self-unknown` = 对端 self 无实证（常态，见上）；`egress-closed` = 有工具试图发言但门是关的；
-`consent` 等待态见上。
+`turn-expired` = 实证轮次超出保留窗、本轮 turn 作废；`peer-not-announced:neko_send` = 对端没申报
+neko_send、出站本地先拒；`turn-ttl-env-invalid` = 环境变量 CORTICO_TURN_TTL_SECONDS 值非法、
+已回落同源值；`consent` 等待态见上。

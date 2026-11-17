@@ -16,14 +16,36 @@ Cortico 侧的 N.E.K.O world 包。`cortico` 块 `kind:"world"`、`api:6`（当�
   「@horizoncloudy/cortico-world-neko listen」，`_BUILD-PLAN.md` §4.4；R6：装机以 doctor 实扫为准），
   桥插件从 N.E.K.O 插件子进程外拨进来（蓝图 §2.2 L83：neko 插件子进程禁听任何 HTTP）。
 - `role:'dial'`：本包拨 `url`（拓扑反过来时用；内核 `driver.ts` dial/listen 同一实现）。
-- token：只走 HTTP Upgrade 头 `Authorization: Bearer`（F4，内核 `driver.ts authHeaderOf`）。
-  URL query 里出现 `token`/`access_token` 的连接直接 `close 4401` 拒停（不比对，日志只记键名）；
-  帧面不上 token。token 为空时非环回绑定被硬拒（`door_closed: loopback required`）。
+- 凭据（工单一 F3 + 工单二 F1）：token 值从部署 `.env` 的 `CORTICO_BRIDGE_TOKEN` 读
+  （`ctx.secret`，`SECURITY-CBP.md` §3 规则 2）。`worlds.neko.token` 配置串与面板项已删除，
+  本包不再**写**这个键。已经落盘的旧值由升级装载时的一次性清理删除（工单二 F1：只删
+  `worlds.neko.token` 这一个键，其余段逐字节不动；先读后删，读不到不写；第二次装载零写；
+  日志只记键名；旧值非空按凭据已泄露处理并记迁移提示——本包不清 `.env`、不写 `secret`）。
+  把新值放进 `.env` 仍要人工做，然后重启本 World。桥侧读同名环境变量
+  （`cortico-bridge-neko/pins.py`）。token 上线路径不变：只走
+  HTTP Upgrade 头 `Authorization: Bearer`（F4，内核 `driver.ts authHeaderOf`）。
+  URL query 里出现 `token`/`access_token` 的连接直接 `close 4401` 拒停（不比对，
+  日志只记键名）；帧面不上 token。token 为空时非环回绑定被硬拒
+  （`door_closed: loopback required`）。
 - 握手：hello/ready caps 交集 + `v_support` 版本门禁（不相交 = 60001 断连，
   内核 `negotiate.ts`）。hello/ready 必带 `self:{id,name,proven}` 声明（F1/F2，见 §2）。
   `start()` 等待上限 12s 放行、永不 reject（硬规则）。
 - 去重：入站 `msg` 帧按 `conv|message_id`（无 message_id 用帧 id）TTL 10 分钟、上限 200，
   在内核 `dedup.ts`/`driver.ts:359`，本包不再自设第二套。
+- turn 保留窗（工单二 F2）：入站记录的保留窗两端同源。单一源在 `spec/CBP-v1.json`
+  `$defs/turnWindow`（正整数 const，缺省 300 秒）；`tools/gen_table.py` 落两桥 `cbp_table.py`、
+  `tools/gen_pins.py` 落 `spec/pins.json`，内核 `PINS.turn.ttlSeconds` 与本包读同一生成值。
+  部署覆盖用环境变量 `CORTICO_TURN_TTL_SECONDS`（两端同名）；坏值回落台账值并记
+  degraded（`turn-ttl-env-invalid`），不静默。本包 `lastTurn` 除断线清外，超过这个窗也清，
+  超窗出站回 `60004`。它与去重 TTL（10 分钟）和内核 rid 缓存（300 秒/200 条，§5.1）
+  分属三件事。
+- 申报面（工单一 F2）：本包 hello/ready 的 `tools[]` 是空集。被调面第一切片不开；申报而
+  不服务会让对端每次误调空等 30 秒拿 60007。入站 `call` 帧立即回 60002
+  `capability_unavailable`。阶段二开被调面时经 `peerToolCatalog` 恢复申报。
+- 下发扬闸（工单二 F3，`SECURITY-CBP.md` §7 规则 3 的后半边）：链路已立而对端没申报
+  `neko_send` 时，`neko_send_message` 本地回 60002 且一帧 call 都不发；未连接时不判
+  （申报面本就空，网络故障归内核 60006）。桥侧申报面含 `neko_send` 已核实
+  （`cortico-bridge-neko/__init__.py` `_BRIDGE_TOOLS`），这道闸不挡正常路径。
 
 ## 2. 入站（N.E.K.O → Cortico）
 
@@ -35,7 +57,8 @@ Cortico 侧的 N.E.K.O world 包。`cortico` 块 `kind:"world"`、`api:6`（当�
 | notice（含 kind=`consent` 等待态） | `neko.notice` | `trigger:'piggyback'` |
 | event connection / degraded | `neko.connection` / `neko.degraded` | flush、origin internal |
 | catalog / ready | 更新进程内目录（status/envPrompt 用），不产事件 | — |
-| call/reply/ack | tools() handler 的 in-flight 表（内核 correlate.ts，TTL 200） | — |
+| reply/ack | tools() handler 的 in-flight 表（内核 correlate.ts，TTL 200） | — |
+| call（被调面未开，F2） | 立即回 60002 capability_unavailable，不产事件 | — |
 
 `meta` 恒带 `{conv, sender, kind, platformMsgId, raw}`（raw 恒留，硬规则 8）。
 `conv` = neko `conversation_id`，同时作 senderKey（§3.2 映射表 neko 行）。
@@ -63,7 +86,8 @@ Cortico 侧的 N.E.K.O world 包。`cortico` 块 `kind:"world"`、`api:6`（当�
 记录的**实证侧**取（sender/conv 是桥从 N.E.K.O bus metadata 送进来的宿主值）。
 args 里出现的任何身份键（`turn`/`actor`/`member`）不进帧；本轮没有桥消息 ⇒ 本地先拒
 `60004 unknown_session`，一个 call 都不发（负例测试：自报 actor 被拒）。断线即清
-本地轮次——桥侧 `TurnLedger` 随连接走，旧 turn 不跨连接复用。
+本地轮次——桥侧 `TurnLedger` 随连接走，旧 turn 不跨连接复用。轮次还随时钟过期：
+超过 §1 的同源保留窗（缺省 300 秒）同样回 `60004`，并记 `turn-expired` 降级位。
 
 N.E.K.O 宿主对插件只开**两道入站门**（蓝图 §2.2 L83，r-neko §5/§6 @52e973ed2）：
 
@@ -100,20 +124,24 @@ N.E.K.O 宿主对插件只开**两道入站门**（蓝图 §2.2 L83，r-neko §5
 
 | 工具 | tags | 语义 |
 |---|---|---|
-| `neko_send_message` | write, barrierAfter | egress 关→`60005 door_closed` 不动桥；本轮没有桥消息→`60004 unknown_session` 不动桥（F3 身份闸）；限流缺省 20/分；call 工具名 `neko_send`（§3.2 `call('<w>_send', args)`）；30s 无回执→`60007 send_uncertain` |
+| `neko_send_message` | write, barrierAfter | egress 关→`60005 door_closed` 不动桥；本轮没有桥消息或超出 turn 保留窗→`60004 unknown_session` 不动桥（工单一 F3 身份闸 + 工单二 F2 过期）；对端没申报 `neko_send`→`60002 capability_unavailable` 不发帧（工单二 F3）；限流缺省 20/分；call 工具名 `neko_send`（§3.2 `call('<w>_send', args)`）；30s 无回执→`60007 send_uncertain` |
 | `neko_status` | read | 连接态/角色/listenPort/caps 交集/consent/catalog/降级清单 |
 | `neko_history` | read | 只查 `host.store.range`，不查对端 |
 | `neko_peer_call` | write | 只接受 catalog 已报名；无本轮桥消息身份直接拒（turn 绑定照 §3.2，先例 4725feee6 world.ts:167-174） |
 
-错误码文案 = 内核 `errors.ts` RET 表：60001 version_mismatch、60003 payload_too_large、
-60005 door_closed、60006 peer_unreachable、60007 send_uncertain、60008 degraded。
+错误码文案 = 内核 `errors.ts` RET 表（工单二 F4 补齐枚举）：60001 version_mismatch、
+60002 capability_unavailable、60003 payload_too_large、60004 unknown_session、60005 door_closed、
+60006 peer_unreachable、60007 send_uncertain、60008 degraded。
 
 ## 5. 配置（`worlds.neko` 段）
 
 `enabled`(false)、`role`('listen'|'dial')、`host`('127.0.0.1')、`port`(39701)、
-`url`('ws://127.0.0.1:39701')、`token`、`selfId`、`egress`(false)、`ratePerMin`(20)、
+`url`('ws://127.0.0.1:39701')、`selfId`、`egress`(false)、`ratePerMin`(20)、
 `visibility`('chat')、`aiBehavior`('respond')、`reconnectBaseMs`(1000)、`reconnectMaxMs`(30000)。
-x-hot 标注见 `src/config.ts` CONFIG_GROUP；role/host/port/url/token 改完需重启本 World。
+token 不在此段（工单一 F3）：共享密钥走部署 `.env` 的 `CORTICO_BRIDGE_TOKEN`（`ctx.secret`）。
+turn 窗口也不在此段：单一源在 `spec/CBP-v1.json`，覆盖走 `CORTICO_TURN_TTL_SECONDS`
+（工单二 F2，见 §1）。
+x-hot 标注见 `src/config.ts` CONFIG_GROUP；role/host/port/url 改完需重启本 World。
 
 ## 6. consent 等待态
 
@@ -127,7 +155,7 @@ x-hot 标注见 `src/config.ts` CONFIG_GROUP；role/host/port/url/token 改完�
 ```bash
 npm install --registry=https://registry.npmmirror.com --ignore-scripts
 ./node_modules/.bin/tsc --noEmit
-node --test tests/                       # 33 pass / 0 fail
+node --test tests/                       # 全绿；条数以现输出为准，文档不写死（X3 §2.5）
 ./node_modules/.bin/tsx tests/drymount-gate.mts          # 框架 dryMountWorld+checkDescribe，exit 0
 ./node_modules/.bin/tsx tests/drymount-gate.mts --regen  # describe.json 由框架 exportDescribe 生成
 ```
@@ -143,10 +171,25 @@ node --test tests/                       # 33 pass / 0 fail
 - self 声明上线了（hello/ready 的 self 位），但 `proven` 永久 false：没有可实证的
   bot 主键（§6-9）。`selfId` 只作申报 id 与协商缺席时的兜底判定；ready 扩面补实证 id
   归桥端工单。
-- 入站 `call`（桥调 Cortico 侧工具）第一切片不开：只记日志不产事件。
+- 入站 `call`（桥调 Cortico 侧工具）第一切片不开：回 60002 且不申报（F2，
+  hello/ready `tools[]` 空集）；被调面本体属阶段二。
 - `reply_tail` 门、按钮通道、断线补课、市场发布线：全在阶段二以后（蓝图 §7）。
 - 真机未验（任务禁启动宿主/框架）：CBP 环回、60001 断连、consent 真实行为
   属蓝图 §5.3 人工冒烟卡。
+- 工单二 F3 的核实口径：对端申报面含 `neko_send` 取自桥仓源码现值（只读），生产装机上
+  的桥版本是否同样含这一行未逐台核验；闸的失败方向保守（判 60002 不发帧），不会双发。
+
+## 9. F 编号图例（裸 `F2` 有歧义，这里钉死）
+
+文档里的 F 号来自三套台账，含义互不相通。新写引用一律带工单名（如「工单二 F2」），
+别只写裸 `F2`（X3 台账 §3 的口径）。历史行没带前缀的按此表归位：
+
+| 前缀 | 出处 | 与本文档相关的意思 |
+|---|---|---|
+| 工单一 F1–F4 | `FIXORDER.md`（2026-11-17） | F2=被调面申报退空+秒回 60002；F3=token 改走 ctx.secret（neko 仓 F1/F4 不在本文档） |
+| 工单二 F1–F6 | `FIXORDER2.md`（2026-11-17） | F1=残键一次性清理；F2=turn 窗口同源可调（缺省 300）；F3=下发扬闸；F4=文档口径；F5=名字卫生（tools/tests）；F6=禁写口径 |
+| F 帧表审计号 | `CHANGELOG-CBP.md` §1 | F13=caps 单源、F17=十型冻结、F18=开放映射等协议台账编号，与前两个 F 系列无关 |
+| N / ADV / U / X 系列 | 取证目录 `cbp-neko-e2e-20261116` | 审查与工序编号，只作出处引用 |
 
 版本钉：N.E.K.O 宿主 `0.9.1 @52e973ed2`；桥清单 `[plugin.sdk] supported =
 ">=0.1.0,<0.2.0"`（SDK_VERSION 空间 `constants.py:9`，非 APP_VERSION——蓝图

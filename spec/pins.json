@@ -464,11 +464,36 @@
     }
   ],
   "caps": {
-    "cbp": { "frame_bytes": 524288, "text_bytes": 524288, "media_bytes": 8388608, "action": "reject" },
-    "neko": { "frame_bytes": 524061, "text_bytes": null, "media_bytes": 8388608, "action": "reject" },
-    "maibot": { "frame_bytes": null, "text_bytes": null, "media_bytes": null, "action": "host-ask" },
-    "astrbot": { "frame_bytes": null, "text_bytes": null, "media_bytes": 6291456, "action": "reject" },
-    "onebot": { "frame_bytes": null, "text_bytes": 4000, "media_bytes": null, "action": "degrade" },
+    "cbp": {
+      "frame_bytes": 524288,
+      "text_bytes": 524288,
+      "media_bytes": 8388608,
+      "action": "reject"
+    },
+    "neko": {
+      "frame_bytes": 524061,
+      "text_bytes": null,
+      "media_bytes": 8388608,
+      "action": "reject"
+    },
+    "maibot": {
+      "frame_bytes": null,
+      "text_bytes": null,
+      "media_bytes": null,
+      "action": "host-ask"
+    },
+    "astrbot": {
+      "frame_bytes": null,
+      "text_bytes": null,
+      "media_bytes": 6291456,
+      "action": "reject"
+    },
+    "onebot": {
+      "frame_bytes": null,
+      "text_bytes": 4000,
+      "media_bytes": null,
+      "action": "degrade"
+    },
     "notes": {
       "cbp_frame_bytes": "524288 = MESSAGE_PLANE_PAYLOAD_MAX_BYTES 缺省 512*1024（upstream/neko/plugin/settings.py:588 @52e973ed2；SECURITY-CBP.md:155 表行写作 plugin/server/settings.py，盘上目录实为 plugin/settings.py）",
       "cbp_text_bytes": "524288 = spec/CBP-v1.json reply.text maxLength 结构护栏（CBP-v1.json:576；与 caps.cbp.frame_bytes 同源同值，CHANGELOG-CBP.md F13）",
@@ -875,5 +900,8 @@
       ],
       "note": "types.ts:202 @836238311 六值逐字（G6）；帧表钉 _BUILD-PLAN §3.1；caps 九名逐字照 spec/CBP-v1.json $defs.caps description（c1 §5.5），由 gen_pins.py 从该件生成并校验"
     }
+  },
+  "turn": {
+    "ttl_seconds": 300
   }
 }

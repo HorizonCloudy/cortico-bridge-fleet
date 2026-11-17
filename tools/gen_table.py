@@ -6,8 +6,14 @@
 两仓 tests/test_table_parity.py 断言盘上 cbp_table.py 与 render() 逐字节一致。
 输出确定性：唯一变化源是 spec 内容（头部写其 sha256），同一 spec 重跑逐字节相同。
 
-用法：python tools/gen_table.py [--base C:/Users/54301]
+用法：python tools/gen_table.py [--base C:/Users/54301] [--check] [--repos 名,...]
   --base 五仓的父目录；反向验证（negctl）时指向副本根，别指真仓。
+  --check 只比不改：盘上副本与 render() 不一致 exit 1（帧表一致性闸）。
+  --repos 逗号分隔仓名过滤。边界：只重生成你有权写的仓；名单外桥仓的副本
+        漂移走台账，由该仓工序自己重跑本文件。
+
+工单二 F2：本文件还把 $defs/turnWindow.const 落进 cbp_table.py 的
+TURN_TTL_SECONDS（turn 保留窗单源；不是帧字段，不进 any 帧）。
 """
 from __future__ import annotations
 
@@ -42,6 +48,10 @@ def table(base: Path = DEFAULT_BASE) -> dict[str, Any]:
         opt = tuple(k for k in node["properties"] if k not in node["required"])
         if opt:
             optional[name] = opt
+    turn_ttl = defs["turnWindow"]["const"]
+    assert (
+        isinstance(turn_ttl, int) and not isinstance(turn_ttl, bool) and turn_ttl > 0
+    ), f"turnWindow.const 必须为正整数秒: {turn_ttl!r}（工单二 F2 单源）"
     return {
         "CBP_VERSION": defs["hello"]["properties"]["v"]["const"],  # properties.v.const
         "_REQUIRED": required,                                     # 逐型 required 去公共头，oneOf 顺序
@@ -54,6 +64,7 @@ def table(base: Path = DEFAULT_BASE) -> dict[str, Any]:
         "_MEMBER_KEYS": tuple(defs["sender"]["required"]),                   # 两键闭合
         "_ID_MAX": defs["frameId"]["maxLength"],                             # 1..64
         "_STR_MAX": defs["sender"]["properties"]["id"]["maxLength"],         # conv·sender·self ≤256
+        "TURN_TTL_SECONDS": turn_ttl,  # 工单二 F2：turn 保留窗单源（非帧字段）
     }
 
 
@@ -79,13 +90,35 @@ def render(base: Path = DEFAULT_BASE) -> str:
     return "".join(lines)
 
 
+def targets(raw: str) -> list[str]:
+    names = [x.strip() for x in raw.split(",") if x.strip()]
+    unknown = [x for x in names if x not in REPOS]
+    assert not unknown, f"--repos 含未知仓名 {unknown}（在表名单：{list(REPOS)}）"
+    return names if names else list(REPOS)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", type=Path, default=DEFAULT_BASE, help="五仓的父目录（negctl 副本用）")
+    ap.add_argument("--check", action="store_true", help="只比不改：盘上副本与 render() 不一致 exit 1")
+    ap.add_argument("--repos", default="", help="逗号分隔仓名过滤；只动你有权写的仓")
     args = ap.parse_args()
     text = render(args.base)
     data = text.encode("utf-8")
-    for repo in REPOS:
+    repos = targets(args.repos)
+    if args.check:
+        bad: list[str] = []
+        for repo in repos:
+            out = args.base / repo / "cbp_table.py"
+            got = out.read_bytes() if out.exists() else None
+            if got != data:
+                bad.append(f"{repo}: 盘上 cbp_table.py 缺失或与生成器输出不一致（重跑本生成器）")
+        if bad:
+            print("\n".join(bad))
+            return 1
+        print(f"--check OK: {repos} 的 cbp_table.py 与生成器输出逐字节一致（含 TURN_TTL_SECONDS）")
+        return 0
+    for repo in repos:
         out = args.base / repo / "cbp_table.py"
         out.write_bytes(data)  # write_bytes：不被平台换行符改写，两仓字节必然一致
         print(f"wrote {out} ({len(data)} bytes)")

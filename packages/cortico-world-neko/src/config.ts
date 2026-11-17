@@ -1,6 +1,8 @@
 /**
  * config.ts —— `worlds.neko` 配置段。形状钉自 _BUILD-PLAN.md §3.2 模板
- * （enabled/url/token/egress/ratePerMin）+ §4.4 端口表（39701，建议缺省
+ * （enabled/url/egress/ratePerMin）。F3 起 token 位删除：凭据走 ctx.secret
+ * ('CORTICO_BRIDGE_TOKEN')，配置串与面板项不再携带（SECURITY-CBP §3 规则 2）。
+ * 端口表沿用 §4.4（39701，建议缺省
  * 127.0.0.1，env 可覆盖：R6 装机以 doctor 实扫为准；内核 pins 快照同值
  * cortico-bridge-core/src/pins.ts:71 `nekoListen: 39701`，单一来源是
  * spec/pins.json 的「cortico-world-neko listen」行）。
@@ -10,6 +12,8 @@
  * 否则 dryMountWorld 判 fail（cortico src/extensions/dry-mount.ts:47-63,217
  * @836238311）。x-hot:false = 改完需重启本 World（先例 README 口径）。
  */
+import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ConfigGroup } from 'cortico/core/types.ts';
 
 export const WORLD_ID = 'neko';
@@ -23,9 +27,10 @@ export interface NekoBridgeConfig {
   port: number;
   /** dial 角色专用。 */
   url: string;
-  /** 共享密钥：只走 HTTP Upgrade 头 `Authorization: Bearer`（F4，内核 driver.ts authHeaderOf）；
-   * URL query 携带 token/access_token 的连接被 close 4401 直接拒停，帧面永不上 token。 */
-  token: string;
+  // F3：token 字段已删（SECURITY-CBP §3 规则 2）。共享密钥只从
+  // ctx.secret('CORTICO_BRIDGE_TOKEN') 取，由 definition.ts create() 注入实例。
+  // 值不进配置串、不进面板、不进 config.json。传输面规则不变（F4）：只走
+  // HTTP Upgrade 头 Authorization: Bearer；URL query 带 token 一律 close 4401。
   /** 本端 self 声明 id（hello/ready self 位）：手填值一律 proven:false（§2.2），
    * 只作申报与兜底，回声抑制只认桥握手申报且 proven:true 的 self。 */
   selfId: string;
@@ -47,7 +52,6 @@ export const DEFAULTS: NekoBridgeConfig = {
   host: '127.0.0.1',
   port: 39701,
   url: 'ws://127.0.0.1:39701',
-  token: '',
   selfId: '',
   egress: false,
   ratePerMin: 20,
@@ -69,7 +73,6 @@ export function normalizeConfig(raw: Partial<NekoBridgeConfig> | undefined): Nek
     host: str(c.host, DEFAULTS.host) || DEFAULTS.host,
     port: Math.min(65_535, Math.max(1, Math.floor(num(c.port, DEFAULTS.port)))),
     url: str(c.url, DEFAULTS.url) || DEFAULTS.url,
-    token: str(c.token, ''),
     selfId: str(c.selfId, ''),
     egress: c.egress === true,
     ratePerMin: Math.max(0, Math.floor(num(c.ratePerMin, DEFAULTS.ratePerMin))),
@@ -106,7 +109,7 @@ export const CONFIG_GROUP: ConfigGroup = {
         description: '缺省 39701（spec/pins.json ports 行）；避让段以 doctor 实扫为准（R6）。',
       },
       [`worlds.${WORLD_ID}.url`]: { type: 'string', title: '桥地址（dial）', 'x-hot': false, description: '形如 ws://127.0.0.1:39701。' },
-      [`worlds.${WORLD_ID}.token`]: { type: 'string', title: '桥 token', 'x-hot': false, description: '与桥一致，只走 Authorization: Bearer 头；留空表示不校验，且非环回绑定会被拒（F4）。' },
+      // F3：无 token 面板项。凭据在部署 .env 的 CORTICO_BRIDGE_TOKEN（ctx.secret）。
       [`worlds.${WORLD_ID}.selfId`]: { type: 'string', title: '本端 self 声明 id', 'x-hot': true, description: '写进 hello/ready 的 self.id（proven:false）。回声抑制只认桥握手申报且 proven:true 的 self；此值仅在协商 self 缺席时作兜底判定。' },
       [`worlds.${WORLD_ID}.egress`]: {
         type: 'boolean',
@@ -141,3 +144,55 @@ export const CONFIG_GROUP: ConfigGroup = {
     },
   },
 };
+
+/**
+ * 工单二 F1（用户决定 2）：一次性清理旧残键。
+ * 工单一 F3 删了 `worlds.neko.token` 的字段与面板项，但引擎 `persist()` 是深合并写回，
+ * 旧部署 config.json 里已经落盘的明文键不会自己消失（X3 台账 §2.6 记的正是这条）。
+ * 升级装载时在 definition.create() 里删一次，规则照工单逐条落码：
+ * - 只删 `worlds.neko` 段的 `token` 这一个键，其余段与字节不动——文件按引擎同款
+ *   2 空格缩进 + 尾换行整体重写，对同格式文件逐行等值（测试做逐字节断言）。
+ * - 删之前先读：config.json 读不到或解析失败就不写，残键留待下次装载。
+ * - 幂等：活配置对象没有 token 时直接返回，第二次装载零读零写。
+ * - 日志只记键名，永不记值；旧值非空 = 凭据已明文落过盘，按泄露面成立记迁移提示。
+ *   本函数不清 `.env`、不调 `storeSecret`，也不把旧值写进任何地方。
+ */
+export function purgeLegacyTokenSection(botDir: string, cfgSection: Record<string, unknown>): string[] {
+  const notes: string[] = [];
+  if (!Object.hasOwn(cfgSection, 'token')) return notes; // 幂等腿：零读零写
+  const file = join(botDir ?? '', 'config.json');
+  let root: Record<string, unknown> | null = null;
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) root = parsed as Record<string, unknown>;
+  } catch {
+    root = null; // 读不到/坏 JSON：不写，残键留待下次装载
+  }
+  if (root === null) {
+    notes.push(`config.json 读不到或解析失败：本次不写文件，worlds.${WORLD_ID}.token 残键留待下次装载（只记键名）。`);
+    delete cfgSection.token;
+    return notes;
+  }
+  const worlds = root.worlds;
+  const section = worlds && typeof worlds === 'object' ? (worlds as Record<string, unknown>)[WORLD_ID] : undefined;
+  const onDisk = !!section && typeof section === 'object' && Object.hasOwn(section as object, 'token');
+  if (onDisk) {
+    const value = (section as Record<string, unknown>).token;
+    delete (section as Record<string, unknown>).token;
+    const payload = `${JSON.stringify(root, null, 2)}
+`;
+    const tmp = `${file}.atomic-${process.pid}`;
+    writeFileSync(tmp, payload, 'utf8');
+    renameSync(tmp, file);
+    notes.push(`已删除 config.json 里 worlds.${WORLD_ID}.token 残键（日志只记键名，不记值）。`);
+    if (typeof value === 'string' && value !== '') {
+      notes.push(
+        `旧 token 值非空：明文已落过盘，按凭据已泄露处理。请轮换共享密钥，并把新值放进部署 .env 的 CORTICO_BRIDGE_TOKEN；本包不清 .env、不写 secret。`,
+      );
+    }
+  } else {
+    notes.push(`活配置里残留的 worlds.${WORLD_ID}.token 已丢弃；config.json 无该键，文件未改写。`);
+  }
+  delete cfgSection.token; // 同步活对象：面板与后续 persist 不再带着旧键
+  return notes;
+}

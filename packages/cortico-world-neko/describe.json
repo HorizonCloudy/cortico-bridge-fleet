@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "neko_send_message",
-      "description": "Send text (plus optional inline image segments) into a N.E.K.O conversation via the bridge. Only works while egress is open; closed door returns 60005 door_closed. Needs a bridge message in this turn: without one it returns 60004 unknown_session (the call identity comes from the inbound record, never from arguments). External-URL images and audio/video segments are refused locally (host has no upload API for them).",
+      "description": "Send text (plus optional inline image segments) into a N.E.K.O conversation via the bridge. Only works while egress is open; closed door returns 60005 door_closed. Needs a live bridge message in this turn: without one, or after the turn retention window passes, it returns 60004 unknown_session (the call identity comes from the inbound record, never from arguments; the window has one source in the spec, default 300 seconds, CORTICO_TURN_TTL_SECONDS overrides it). While the peer has not announced neko_send, this tool returns 60002 capability_unavailable and sends no frame (SECURITY-CBP §7). External-URL images and audio/video segments are refused locally (host has no upload API for them).",
       "parameters": {
         "type": "object",
         "additionalProperties": false,
@@ -28,8 +28,8 @@
         "write"
       ],
       "summary": {
-        "zh": "经桥向 N.E.K.O 会话发消息；出站门关着直接回 60005，本轮没有桥消息回 60004，超 caps.neko 帧上限（pins 单源）本地先拒回 60003。",
-        "en": "Send text through the bridge; 60005 while the egress door is closed, 60004 without a bridge message this turn, 60003 for oversized payloads."
+        "zh": "经桥向 N.E.K.O 会话发消息；出站门关着直接回 60005，本轮没有桥消息或超出 turn 保留窗回 60004，超 caps.neko 帧上限（pins 单源）本地先拒回 60003，对端没申报 neko_send 时本地回 60002 不发帧。",
+        "en": "Send text through the bridge; 60005 while the egress door is closed, 60004 without a live bridge message this turn, 60003 for oversized payloads, 60002 while the peer never announced neko_send."
       }
     },
     {
@@ -142,7 +142,7 @@
       "key": "worlds.neko.envPrompt",
       "title": "N.E.K.O 桥 · 环境提示词",
       "role": "envPrompt",
-      "content": "你在 N.E.K.O 桥这一头。你的话不是自己直接发出去的：线路的另一头是 N.E.K.O 猫娘宿主，\n桥插件（cortico-bridge-neko）替你连它；你只负责说什么，它负责经 push_message v2 送进去。\n\n{{neko.connection}}\n{{neko.scope}}\n{{neko.self}}\n\n你能看到的会话：\n{{neko.conversations}}\n\nconsent 等待态（首启闸没放行前消息进不去，这是正常态不是故障）：\n{{neko.consent}}\n\n对端桥启用的工具（用 `neko_peer_call` 按名字调，用本轮触发消息的身份执行）：\n{{neko.tools}}\n\n## 回话规则\n\n- N.E.K.O 会话只能用 `neko_send_message` 回。conv 参数用事件里带的会话键\n  （conversation_id，见 meta.conv / senderKey）。\n- 出站门（egress）关着时该工具直接回 60005 door_closed —— 这是配置状态，不是失败重试的理由。\n- 每条出站调用都钉在触发本轮的那条入站消息上（帧里的 turn/actor 由系统从实证记录填，\n  不接受自报）。本轮没有桥消息时 neko_send_message / neko_peer_call 回 60004\n  unknown_session —— 这是身份闸，不是网络故障。\n- 回执写 60007 send_uncertain 时，消息可能已经发出：先向对端确认，不要盲目重发。\n- 60003 payload_too_large 是本地先拒（上限 = caps.neko.frame_bytes，单一来源\n  spec/pins.json），重试同一载荷必然同样失败；把内容拆小或去掉内联图再发。\n- 宿主只有两道入站门：push_message v2 与 reply_tail（窄门，不进第一切片）。\n  外部 URL 图会被拒（只认内联 base64 / 宿主 upload 句柄），audio/video 没有上传 API，\n  这些段在出站计划里直接被丢并记入降级清单——不是发送失败，是宿主面根本没有这个能力。\n- 只想在主人电脑上显示（不打扰会话）用桌宠自己的说话面，别拿它冒充桥侧回复。\n\n## 协商与降级\n\n- 「caps」= 与桥协商后的能力交集（images/notices/tools 为申报上限；self_echo 不申报：\n  N.E.K.O 总线面没有实证 self 的取值口，本线永久 proven:false）。\n- self 声明：桥在 hello/ready 申报 `{id,name,proven:false}`。proven:false ⇒ 不做回声抑制，\n  同 id 入站照常投递，`neko.self` 常驻 `self-echo:off`（显式降级，不是故障）。\n- 保真降级记录：\n{{neko.degraded}}\n\n降级位含义：未知段以 `[类型]` 占位保留（不吞消息，规则在内核 segment.ts）；\n`external-url-image` = 外部 URL 图被出站计划拒；`no-upload-api` = audio/video/file 段被拒；\n`model-rejects:<mime>` = 当前模型不吃该 MIME，附件没进上下文；\n`self-unknown` = 对端 self 无实证（常态，见上）；`egress-closed` = 有工具试图发言但门是关的；\n`consent` 等待态见上。\n"
+      "content": "你在 N.E.K.O 桥这一头。你的话不是自己直接发出去的：线路的另一头是 N.E.K.O 猫娘宿主，\n桥插件（cortico-bridge-neko）替你连它；你只负责说什么，它负责经 push_message v2 送进去。\n\n{{neko.connection}}\n{{neko.scope}}\n{{neko.window}}\n{{neko.self}}\n\n你能看到的会话：\n{{neko.conversations}}\n\nconsent 等待态（首启闸没放行前消息进不去，这是正常态不是故障）：\n{{neko.consent}}\n\n对端桥启用的工具（用 `neko_peer_call` 按名字调，用本轮触发消息的身份执行）：\n{{neko.tools}}\n\n## 回话规则\n\n- N.E.K.O 会话只能用 `neko_send_message` 回。conv 参数用事件里带的会话键\n  （conversation_id，见 meta.conv / senderKey）。\n- 出站门（egress）关着时该工具直接回 60005 door_closed —— 这是配置状态，不是失败重试的理由。\n- 每条出站调用都钉在触发本轮的那条入站消息上（帧里的 turn/actor 由系统从实证记录填，\n  不接受自报）。本轮没有桥消息、或那条消息已超出 turn 保留窗（见上）时，\n  neko_send_message / neko_peer_call 回 60004 unknown_session —— 这是身份闸，不是网络故障。\n- 对端桥没申报 neko_send 时，neko_send_message 本地回 60002 capability_unavailable\n  且一帧不发（申报面闸，SECURITY-CBP §7）；链路没立起来时不报这个码，报 60006。\n- 回执写 60007 send_uncertain 时，消息可能已经发出：先向对端确认，不要盲目重发。\n- 60003 payload_too_large 是本地先拒（上限 = caps.neko.frame_bytes，单一来源\n  spec/pins.json），重试同一载荷必然同样失败；把内容拆小或去掉内联图再发。\n- 宿主只有两道入站门：push_message v2 与 reply_tail（窄门，不进第一切片）。\n  外部 URL 图会被拒（只认内联 base64 / 宿主 upload 句柄），audio/video 没有上传 API，\n  这些段在出站计划里直接被丢并记入降级清单——不是发送失败，是宿主面根本没有这个能力。\n- 只想在主人电脑上显示（不打扰会话）用桌宠自己的说话面，别拿它冒充桥侧回复。\n\n## 协商与降级\n\n- 「caps」= 协商后真正生效的交集，以运行时读数为准。images/notices/tools 只是本端申报上限，\n  交集可能更小甚至为空（词表对齐前，申报面不等于交集，别把上限当结果）。self_echo 不申报：\n  N.E.K.O 总线面没有实证 self 的取值口，本线永久 proven:false。\n- self 声明：桥在 hello/ready 申报 `{id,name,proven:false}`。proven:false ⇒ 不做回声抑制，\n  同 id 入站照常投递，`neko.self` 常驻 `self-echo:off`（显式降级，不是故障）。\n- 保真降级记录：\n{{neko.degraded}}\n\n降级位含义：未知段以 `[类型]` 占位保留（不吞消息，规则在内核 segment.ts）；\n`external-url-image` = 外部 URL 图被出站计划拒；`no-upload-api` = audio/video/file 段被拒；\n`model-rejects:<mime>` = 当前模型不吃该 MIME，附件没进上下文；\n`self-unknown` = 对端 self 无实证（常态，见上）；`egress-closed` = 有工具试图发言但门是关的；\n`turn-expired` = 实证轮次超出保留窗、本轮 turn 作废；`peer-not-announced:neko_send` = 对端没申报\nneko_send、出站本地先拒；`turn-ttl-env-invalid` = 环境变量 CORTICO_TURN_TTL_SECONDS 值非法、\n已回落同源值；`consent` 等待态见上。\n"
     }
   ]
 }

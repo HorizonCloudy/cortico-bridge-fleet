@@ -37,6 +37,12 @@
     }
   ],
   "$defs": {
+    "turnWindow": {
+      "description": "Retention window for turn records, in seconds. The integer const is the only copy of this number in the fleet. tools/gen_table.py writes it into cbp_table.py as TURN_TTL_SECONDS in both bridge repos. tools/gen_pins.py writes it into spec/pins.json as turn.ttl_seconds. cortico-bridge-core/src/correlate.ts and cortico-world-neko/src/world.ts read that one value through the kernel. A deployment may override the value with the environment variable CORTICO_TURN_TTL_SECONDS. Both sides use the same name. This window is not the dedup window in cortico-bridge-core/src/dedup.ts, and it is not the rid reply cache window in idempotency.ts. It is a protocol constant, not a frame type. It never appears inside a frame.",
+      "type": "integer",
+      "const": 300,
+      "minimum": 1
+    },
     "any": {
       "description": "Arbitrary JSON value, including null. Used for raw passthrough and event data; content is framework-defined and kept verbatim (blueprint 2.1 meta.raw rule). No type keyword means accept-everything."
     },

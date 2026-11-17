@@ -16,7 +16,7 @@ if (!existsSync(canonical)) {
   process.exit(1);
 }
 const doc = JSON.parse(readFileSync(canonical, 'utf8'));
-for (const k of ['caps', 'vocab', 'schema', 'generated']) {
+for (const k of ['caps', 'vocab', 'schema', 'generated', 'turn']) {
   if (!(k in doc)) {
     console.error(`prepack 失败：spec/pins.json 缺 ${k} 段，这份不能进产物`);
     process.exit(1);

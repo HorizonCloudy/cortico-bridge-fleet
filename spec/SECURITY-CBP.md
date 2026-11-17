@@ -35,7 +35,7 @@
    - `anon`：枚举四值 `["identified","anonymous","self","unknown"]`。判据：`member.id == self.id` → `self`。载荷带匿名位（v11 `anonymous` 字段/段，`reports/r-nonebot-onebot.md:151`）→ `anonymous`。宿主没给发信人 → `unknown`。其余 → `identified`。
 3. 执法规则，按顺序：
    - 桥只用 `turn` 查自己的入站记录来定身份。线上 `actor` 只作对账用。两者不一致时以宿主记录为准，并回一条 `event{name:"degraded"}`，`data.reason = "actor-mismatch"`。
-   - `turn` 查不到、或超出入站记录保留窗（窗长取 §5.1 的 rid 缓存口径，缺省对齐 `dedup.ts:14` 的 10 分钟），拒执行，回 `reply{ok:false,error:{code:60004,message:"unknown_session: turn 无对应入站记录"}}`。`60004` 是在册码（`packages/cortico-bridge-core/src/errors.ts:26`）。
+   - `turn` 查不到、或超出入站记录保留窗，拒执行，回 `reply{ok:false,error:{code:60004,message:"unknown_session: turn 无对应入站记录"}}`。窗长单一来源：`spec/CBP-v1.json` `$defs/turnWindow` 的正整数 const（缺省 300 秒），经 `tools/gen_table.py` 落两桥 `cbp_table.py`、经 `tools/gen_pins.py` 落 `spec/pins.json`，两端读同一生成值；部署以环境变量 `CORTICO_TURN_TTL_SECONDS` 覆盖，两端同名（工单二 F2，2026-11-17 拍板）。原句「缺省对齐 `dedup.ts:14` 的 10 分钟」作废——去重窗与 rid 缓存窗分属另两件事。`60004` 是在册码（`packages/cortico-bridge-core/src/errors.ts:26`）。
    - 写动作的 `confirm` 只在 `anon=="identified"` 时生效。`anonymous`/`unknown` 的 turn 只允许只读动作。此条同时堵掉 `onebot_call` 自报 confirm 的洞。
    - 结构性缺字段（帧里根本没有 `actor`）在 `frames.ts` 的 `parseFrame` 判坏帧，走「吞帧 + `framesBad` 计数」老规则（`driver.ts:344-347`）。语义性缺身份（有字段、查不到）才走 `60004`。
 4. `actor` 是对象、内部四键全闭合（`additionalProperties:false`）。`args` 保持开映射不变（`CBP-v1.json:211`），凭据剥除按 §3 第 5 条在 `args` 上同样适用。

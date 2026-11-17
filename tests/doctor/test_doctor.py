@@ -115,7 +115,7 @@ def test_verdict_host_port_free_warns_not_fails():
 
 
 def test_verdict_missing_host_warns_but_exits_zero():
-    # 「查不到→exit 0」为建议档（gate G-K4-2），待 云玩家 签字；政策变更只动此处判据与文档措辞。
+    # 「查不到→exit 0」为建议档（gate G-K4-2），待仓内维护者签字；政策变更只动此处判据与文档措辞。
     repos, ports = _clean()
     repos[2]["status"], repos[2]["got"] = MISS, None
     code, hard, warn = doctor.verdict(repos, ports, [], False)
@@ -129,3 +129,12 @@ def test_real_pin_shape_ports_have_one_null_row():
     rows = doctor.check_ports(pins, lambda p, k: "空闲")
     assert sum(1 for r in rows if r["port"] is None) == 1
     assert sum(1 for r in rows if r["port"] is not None) == len(pins["ports"]) - 1
+
+
+def test_doctor_wording_names_only_repo_roles():
+    # 工单二 F5：档位口径的归属只写仓内角色，不写外来项目的决策人名字。
+    # 判定逻辑一字未动；这条测的是文案本身，回退名字即红。
+    src = (ROOT / "tools" / "doctor.py").read_text(encoding="utf-8")
+    assert "待仓内维护者签字后定稿" in src, "doctor.py 判据句必须用仓内角色措辞"
+    own = Path(__file__).read_text(encoding="utf-8")
+    assert "待仓内维护者签字" in own, "本文件的同句必须用仓内角色措辞"

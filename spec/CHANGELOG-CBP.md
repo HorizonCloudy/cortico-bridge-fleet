@@ -8,8 +8,9 @@
 
 ## 0. 基线与证据边界
 
-- 本仓不是 git checkout：`git rev-parse HEAD` 在 `C:/Users/54301/cortico-bridge-fleet`
-  返回 `fatal: not a git repository`，所以没有本地 HEAD sha 可引；基线用 sha256 钉内容。
+- 基线取证时（2026-11-16 00:34–00:54）本仓还不是 git checkout，`git rev-parse HEAD` 返回
+  `fatal: not a git repository`，所以基线用 sha256 钉内容。2026-11-17 起本仓已是 git 仓
+  （并行会话提交，HEAD 可引）；本节的哈希基线仍按内容比对读，不追改历史读数。
   `SECURITY-CBP.md:9` 的口径（fleet 内引用一律 `路径:行`）与本节一致。
 - 基线哈希（2026-11-16 00:34–00:54 本机 `sha256sum`）：
   - `spec/CBP-v1.json` = `6e2638edfb579aaa13a30f0ef163206c9e51695d6c81440f95ae1df7260d89ea`
@@ -488,6 +489,10 @@ check.mjs` 移植为 `tools/check_conformance.mjs` 并钉 ajv 8.20.0（npmmirror
 2. F3 的 turn 查表窗长：`SECURITY-CBP.md:38` 写「超出入站窗（§5 第 4 条的窗）」，而 §5.4
    定的是 60 帧/分的限流窗；量级上更像 rid 缓存的 300 秒（§5.1，`SECURITY-CBP.md:222`）。
    定哪个窗，影响 60004 的触发面与 `arrival` 向量，向量落地前必须先钉一句。
+   —— 2026-11-17 已钉（工单二 F2，用户拍板：同源可调、缺省 300）：单一源
+   `CBP-v1.json $defs/turnWindow`，两端经生成器读同一值，覆盖用 env
+   `CORTICO_TURN_TTL_SECONDS`；rid 缓存 300/200 与 dedup 10 分钟各自不动。
+   见文末「工单二 F2 · turn 保留窗同源」节。本条历史文本按台账纪律不改写，收口以本行为准。
 3. 60008 `DEGRADED`（`packages/cortico-bridge-core/src/errors.ts:30`）在全部裁决之后仍无
    发射点：降级面全部走 `event{name:'degraded'}` 帧（F10）。维持「在册不用」，除非有人给它
    帧外场景。
@@ -513,3 +518,23 @@ check.mjs` 移植为 `tools/check_conformance.mjs` 并钉 ajv 8.20.0（npmmirror
   `packages/cortico-world-maibot/tests/hello-authority.test.ts` 直读桥 `client.py` 与 fleet 镜像，
   断言两侧申报名集合相等。
 - 对端旧版兼容：旧桥仍发空 tools 时，新版 fleet 只是不再 advertise 未接线工具，不新增断连路径。
+
+## 工单二 F2 · turn 保留窗同源（2026-11-17）
+
+- 帧表：`$defs` 加 `turnWindow`（integer const 300，minimum 1）。它不是第 11 型帧，不进
+  oneOf、不进任何帧；协议常量注记，F17「禁 mint 第 11 型」不受影响。
+- 产物链（两份产物经两个现有生成器落，不许手抄）：`tools/gen_table.py` → 两桥
+  `cbp_table.py` 的 `TURN_TTL_SECONDS`；`tools/gen_pins.py` → `spec/pins.json` 的
+  `turn.ttl_seconds` → `cortico-bridge-core/src/pins.ts` 的 `PINS.turn.ttlSeconds`。
+- 覆盖：环境变量 `CORTICO_TURN_TTL_SECONDS`（两端同名，秒，正数）。坏值回落台账值并记
+  degraded（`turn-ttl-env-invalid`），不静默。上限 200 条沿用 §5.1 rid 缓存口径，不并入本窗。
+- fleet 行为变更：`correlate.ts` 的 `TurnLedger` 默认窗从 dedup 600 秒改挂同源值
+  （该文件原 shortcut 注记随之清账）；`cortico-world-neko` 的 `lastTurn` 补按窗过期（工单二 F2）。
+- conformance：未加向量（无 wire 变更，帧形不变）。
+- 闸：`tests/pins/turn-window-gate.test.mjs`（源=pins.json=gen_table 渲染输出=内核读数，
+  一端改源不重生成即红）+ 两桥 `tests/test_table_parity.py`（盘上 `cbp_table.py` 与
+  `render()` 逐字节）。桥侧两份盘上副本本批未重生成：neko 由 N8 工序跑
+  `python -I tools/gen_table.py --repos cortico-bridge-neko`，maibot 走台账由该仓工序自跑
+  （工单二边界：禁改名单）。重生成前 `--check` 会红，属设计内漂移信号。
+- 对端旧版兼容：无 wire 变更。旧 `worlds.neko.token` 残键由装载一次性清理删除
+  （工单二 F1），不涉及协议帧。
