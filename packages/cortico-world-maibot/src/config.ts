@@ -1,7 +1,7 @@
 /**
  * config.ts —— `worlds.maibot` 配置段。
  * 形状钉自 _BUILD-PLAN.md §3.2 definition 模板行：
- * `{ enabled:false, url:'ws://127.0.0.1:3970X', token:'', egress:false, ratePerMin:20 }`，
+ * `{ enabled:false, url:'ws://127.0.0.1:3970X', egress:false, ratePerMin:20 }`，
  * maibot 的 X = 39702（§4.4 端口表「Cortico 侧 neko/maibot world listen」行；
  * 内核 pins 同值 cortico-bridge-core/src/pins.ts:73 `maibotListen: 39702`）。
  * 方向与 astrbot 包相反：MaiBot 插件跑在 Runner 子进程、只有三个原始 RPC
@@ -18,8 +18,8 @@ export interface MaibotConfig {
   enabled: boolean;
   /** 本包监听地址；桥（cortico-bridge-maibot）外拨到这里。改完重启本 World 生效。 */
   url: string;
-  /** 共享密钥；桥以 `?token=` 查询串带上来（内核 driver.ts authToken 规则，close 4401）。 */
-  token: string;
+  // 2026-11-19：共享密钥不进配置段。只从部署 .env 的 CORTICO_BRIDGE_TOKEN
+  // 经 definition.ts 的 ctx.secret() 注入；留空即拒监听（11-13 判例）。
   /** 出站门；缺省关。发信腿接线后由它决定是否放行；桥 hello.tools 空期本腿不下发。 */
   egress: boolean;
   /** 每分钟出站上限，0 不限；缺省 20（§3.2 模板 ratePerMin）。 */
@@ -29,7 +29,6 @@ export interface MaibotConfig {
 export const DEFAULTS: MaibotConfig = {
   enabled: false,
   url: 'ws://127.0.0.1:39702',
-  token: '',
   egress: false,
   ratePerMin: 20,
 };
@@ -40,7 +39,6 @@ export function normalizeConfig(raw: Partial<MaibotConfig> | undefined): MaibotC
   return {
     enabled: c.enabled === true,
     url: typeof c.url === 'string' && c.url !== '' ? c.url : DEFAULTS.url,
-    token: typeof c.token === 'string' ? c.token : '',
     egress: c.egress === true,
     ratePerMin: Math.max(0, Math.floor(num(c.ratePerMin, DEFAULTS.ratePerMin))),
   };
@@ -53,19 +51,13 @@ export const CONFIG_GROUP: ConfigGroup = {
   schema: {
     type: 'object',
     title: 'MaiBot 桥（CBP）',
-    description: 'Cortico 侧监听、桥接入密钥、出站门与限流。',
+    description: 'Cortico 侧监听、出站门与限流。共享密钥不在本面板，设在部署 .env 的 CORTICO_BRIDGE_TOKEN。',
     properties: {
       [`worlds.${WORLD_ID}.url`]: {
         type: 'string',
         title: '监听地址',
         'x-hot': false,
         description: '形如 ws://127.0.0.1:39702。桥外拨到这里；改完重启本 World 生效。',
-      },
-      [`worlds.${WORLD_ID}.token`]: {
-        type: 'string',
-        title: '桥 token',
-        'x-hot': false,
-        description: '与桥配置一致；留空表示不校验。',
       },
       [`worlds.${WORLD_ID}.egress`]: {
         type: 'boolean',

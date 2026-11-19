@@ -10,6 +10,7 @@ import { newHead, type Frame } from '../src/frames.js';
 
 const agent = (name: string) => ({ name, version: '0.1.0', sha: 'abababababababab' });
 const SELF = { id: 'bot-1', name: 'Cortico', proven: true };
+const TEST_SECRET = 'test-bridge-secret';
 
 function waitFor(cond: () => boolean, ms = 2000): Promise<void> {
   const t0 = Date.now();
@@ -27,7 +28,7 @@ test('same rid redelivered: the consumer runs once, the cache answers the second
   const calls: string[] = [];
   const replies: string[] = [];
   let msgSeen = false;
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -43,7 +44,7 @@ test('same rid redelivered: the consumer runs once, the cache answers the second
     },
   });
   await listen.start();
-  const dial = new BridgeDriver({
+  const dial = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'dial',
     url: `ws://127.0.0.1:${listen.listenPort}`,
     agent: agent('dial'), self: SELF,

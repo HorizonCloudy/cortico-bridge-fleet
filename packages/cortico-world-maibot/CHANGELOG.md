@@ -2,6 +2,30 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.5
+
+*2026-11-19 · 能力面收敛 / 声明撤回*
+
+- 撤回 `0.1.4` 节里**从未发布**的 `unsafe` 声明；`cortico.tags` 不再含 warning tag。
+- 复核 11-13 能力面已收敛：F20 的 Bearer + Origin + fail-shut 堵住「任意网页拨入」，`egress` 默认关、未申报能力本地判 60002、工具集静态表，模型无法借链路读写本机任意文件。
+- README 安全声明改写为能力面收敛证据；不写 `safe`，最终状态留待索引仓维护者审查。
+
+## 0.1.4
+
+
+> 注：本节未发布；其中「自声明 unsafe」一条已由下一版撤回，能力面收敛见下一节。
+*2026-11-19 · 安全修复*
+
+- **按 11-13 判例（commit `5b453aa0b`）自声明 `cortico.tags: ["unsafe", ...]`**。
+  理由：本包在本机开 CBP WS 监听口；浏览器 WebSocket 没有 CORS 预检，本机任意网页
+  都能拨环回端口，无鉴权时等价于以控制台身份与 Coo 对话并触及本机文件。
+- 删 `MaibotConfig.token` / `DEFAULTS.token` / `normalizeConfig` token 读取 / 面板
+  `worlds.maibot.token` 项（SECURITY-CBP.md:132 点名落点）。
+- `definition.create` 改从 `ctx.secret('CORTICO_BRIDGE_TOKEN')` 注入 `authToken`；
+  缺密钥时内核 `listen()` fail-shut 拒绑定。
+- 依赖内核钉到 `^0.1.3`（含强制密钥 + Origin 校验），避免解析到旧版免鉴权 core。
+- `node --test "tests/*.test.ts"` 54/54 通过。
+
 ## 0.1.3
 
 - `apps` 换成 `qq` + `im`：TAGS.md:28 规定别的 tag 成立时不用 `apps`；TAGS.md:60 又要求标了 `qq` 就同时标 `im`。

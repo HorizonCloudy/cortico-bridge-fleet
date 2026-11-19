@@ -18,13 +18,15 @@ const TOOL_NAMES = ['koishi_actions', 'koishi_call', 'koishi_events', 'koishi_st
 
 test('cortico 块：kind=world、api 精确=6、describe 指产物、无 webUiClient（gate C-4）', () => {
   assert.equal(pkg.type, 'module');
-  assert.equal(pkg.version, '0.1.0');
+  assert.equal(pkg.version, '0.1.2');
   assert.equal(pkg.cortico.kind, 'world');
   assert.equal(pkg.cortico.api, 6, 'EXTENSION_API_VERSIONS.world @836238311 = 6');
   assert.equal(pkg.cortico.describe, 'describe.json');
   assert.equal(pkg.cortico.webUiClient, undefined, 'v1 薄壳不声明 webUiClient');
   assert.equal(pkg.main, './src/definition.js');
   assert.equal(pkg.exports['.'], './src/definition.js');
+  // 2026-11-19：能力面已收敛，撤回从未发布的 unsafe 声明；平台没有 safe 标签，
+  // 不写词表外的字符串（TAGS.md:31/:42），缺席只代表「未声明且未审查」。
   assert.deepEqual(pkg.cortico.tags, ['qq', 'im', 'external-setup', 'unofficial-api', 'experimental']);
 });
 

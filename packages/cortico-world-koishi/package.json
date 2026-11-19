@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-world-koishi",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "description": "Koishi 插件兼容入口薄壳：不写 Koishi 协议码，用 OneBot v11 正向 WebSocket 拨 NapCat 类实现端，再叠 catalog 实现选择。",
   "license": "MIT",

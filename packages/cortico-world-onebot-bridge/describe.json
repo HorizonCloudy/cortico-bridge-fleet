@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "onebot_call",
-      "description": "Call any OneBot v11 action. Read-only actions run immediately. Write actions run only on a turn with an identified inbound sender (a turn without an inbound message is refused, 60004) and follow writePolicy (default: confirm=true required). Credential actions get_cookies/get_csrf_token/get_credentials are not served (10002).",
+      "description": "Call only actions from the static v11 catalog (35 entries). Implementation-specific extension actions are no longer forwarded (10002). Any local file reference in params - drive letters, UNC, absolute paths, .., file:// or [CQ:*,file=...] - is refused before the call leaves the process; media must be an http(s) URL or base64 data. Read-only actions run immediately. Write actions run only on a turn with an identified inbound sender (a turn without an inbound message is refused, 60004) and follow writePolicy (default: confirm=true required). Credential actions get_cookies/get_csrf_token/get_credentials are not served (10002).",
       "parameters": {
         "type": "object",
         "properties": {
@@ -32,8 +32,8 @@
         "act"
       ],
       "summary": {
-        "zh": "调用 v11 action；只读直接执行，写动作要求本轮有实证发起方（缺入站记录回 60004）并按策略需 confirm=true；凭证动作不进桥（10002）。",
-        "en": "Call a v11 action; reads run immediately, writes need an identified inbound sender this turn (60004 without one) and follow the write policy; credential actions are not served (10002)."
+        "zh": "只调用 v11 静态目录内的 action；只读直接执行，写动作要求本轮有实证发起方（缺入站记录回 60004）并按策略需 confirm=true；凭证动作、目录外扩展动作、参数里的本机文件路径一律拒（10002）。",
+        "en": "Call only actions from the static v11 catalog; reads run immediately, writes need an identified inbound sender this turn (60004 without one) and follow the write policy; credential actions, non-catalog extension actions and local file references in params are refused (10002)."
       }
     },
     {

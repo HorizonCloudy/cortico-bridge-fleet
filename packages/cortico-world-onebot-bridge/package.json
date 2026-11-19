@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-world-onebot-bridge",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "type": "module",
   "description": "接任意 OneBot v11 实现的桥：正向 WebSocket、通用 action 调度与动作目录覆盖度。",
   "license": "MIT",

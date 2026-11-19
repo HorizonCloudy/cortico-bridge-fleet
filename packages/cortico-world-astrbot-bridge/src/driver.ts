@@ -11,7 +11,12 @@
  *   ——send 的 conv 是 dict `{kind,id}`、text 顶层（37c1e6ccd bridge.py:459-462 实读）；
  *   CBP 桥走 §3.1 形（conv 字符串 = UMO，segments 数组）。
  * - 入帧先做旧帧兼容读：msg 的 conv 是 dict → 收敛成 MsgFrame；`tool-ack`/`ack` 都进关联表。
- * - hello 永远并集发（CBP 头 + v/token/name/capabilities），旧桥多余字段无害。
+ * - hello 永远并集发（CBP 头 + v/name/capabilities），旧桥多余字段无害。
+ *
+ * 2026-11-19（SECURITY-CBP.md:115-121、10-22 / 11-13 索引仓判例）：鉴权子协议换掉。
+ * - 共享密钥只走 HTTP Upgrade 头 `Authorization: Bearer <token>`，不再进 hello 帧体；
+ * - 缺密钥 / URL 带凭据 query 一律拒拨（fail-shut），不再有「环回免鉴权」降级路；
+ * - 密钥由 definition.create 从 ctx.secret('CORTICO_BRIDGE_TOKEN') 注入，不落配置文件。
  */
 import WebSocket from 'ws';
 import type { Logger } from 'cortico/core/types.ts';
@@ -42,7 +47,8 @@ export interface AgentIdentity {
 
 export interface DriverOptions {
   url: string;
-  token: string;
+  /** CBP 共享密钥；空串 = 拒绝拨号（11-13 判例的 fail-shut）。不进任何帧体与日志。 */
+  authToken: string;
   agent: AgentIdentity;
   caps: string[];
   tools: ToolAnn[];
@@ -104,6 +110,15 @@ const IDLE_TIMEOUT_MS = 120_000;
 export const SEND_TIMEOUT_MS = 30_000;
 export const TOOL_TIMEOUT_MS = 90_000;
 
+/**
+ * 凭据禁过 URL（SECURITY-CBP.md:115、:144「URI 串不含 token 子串」活闸）。
+ * 带 query/fragment 或任何 token 子串一律判脏；只判形状、不回显值，避免密钥进日志。
+ */
+export function isCleanWsUrl(url: string): boolean {
+  if (url.includes('?') || url.includes('#')) return false;
+  return !/token/i.test(url);
+}
+
 type Pending = { resolve: (v: Record<string, unknown>) => void; timer: ReturnType<typeof setTimeout> };
 
 export class BridgeDriver implements BridgeLike {
@@ -133,10 +148,19 @@ export class BridgeDriver implements BridgeLike {
     return this.negotiated;
   }
 
-  /** 永不 reject：连不上只记日志、后台重连（硬规则 2）。 */
+  /** 永不 reject：连不上只记日志、后台重连（硬规则 2）。缺密钥则直接不拨。 */
   start(): Promise<void> {
     if (!this.opts.url) {
       this.opts.log.info('未配置桥地址，保持未连接');
+      return Promise.resolve();
+    }
+    if (!this.opts.authToken) {
+      // 11-13 判例：本机任意网页都能拨这个 WS 端口，环回不是鉴权。缺密钥不静默降级。
+      this.opts.log.warn('缺少 CORTICO_BRIDGE_TOKEN 共享密钥，拒绝拨号（fail-shut）');
+      return Promise.resolve();
+    }
+    if (!isCleanWsUrl(this.opts.url)) {
+      this.opts.log.warn('桥地址带凭据查询参数，拒绝拨号（SECURITY-CBP §3）');
       return Promise.resolve();
     }
     this.stopped = false;
@@ -238,7 +262,10 @@ export class BridgeDriver implements BridgeLike {
 
   private connect(): void {
     if (this.stopped) return;
-    const ws = new WebSocket(this.opts.url);
+    // 共享密钥只走 Upgrade 头（SECURITY-CBP §3）；dial 侧不读、不发帧体 token 位。
+    const ws = new WebSocket(this.opts.url, {
+      headers: { authorization: `Bearer ${this.opts.authToken}` },
+    });
     this.ws = ws;
     // 握手 guard：对端只接受 TCP、不回 Upgrade 时靠它收尾（先例 driver.ts:388-402 的理由）。
     const guard = setTimeout(() => {
@@ -264,8 +291,9 @@ export class BridgeDriver implements BridgeLike {
       }
       this.backoffMs = this.opts.reconnectBaseMs;
       this.lastActivity = Date.now();
-      // 握手帧：CBP 头 ∪ 旧私有帧字段。旧桥只认 t==='hello' + token
-      //（37c1e6ccd bridge.py:330-341：首帧非 hello → close 4002；token 不符 → 4003）。
+      // 握手帧：CBP 头 ∪ 旧私有帧字段（不含 token）。CBP 协商一旦成立，帧体
+      // token 位不再被发也不再被读（SECURITY-CBP.md:118）；旧私有帧端口的兼容读
+      // 只保留形状，鉴权一律在 Upgrade 头完成。
       this.rawSend({
         v: CBP_VERSION,
         v_support: [CBP_VERSION],
@@ -275,7 +303,6 @@ export class BridgeDriver implements BridgeLike {
         agent: this.opts.agent,
         caps: this.opts.caps,
         tools: this.opts.tools,
-        token: this.opts.token,
         name: 'Cortico',
         capabilities: {},
       });

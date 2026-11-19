@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-world-maibot",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "type": "module",
   "description": "经 CBP v1 帧协议连接 MaiBot 的桥：监听 WebSocket、能力协商、出站门与对端工具清单。",
   "license": "MIT",
@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "ws": "^8.18.0",
-    "@horizoncloudy/cortico-bridge-core": "^0.1.1"
+    "@horizoncloudy/cortico-bridge-core": "^0.1.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -95,8 +95,8 @@ export const NEKO_WORLD: WorldDefinition<NekoBridgeConfig> = {
   defaults: () => ({ ...DEFAULTS }),
   // create() 纯：装配层会为未启用的 World 也调一次（硬规则 1）。
   // 工单一 F3：共享密钥只从 ctx.secret 取（SECURITY-CBP §3 规则 2）。键名与桥侧
-  // CORTICO_BRIDGE_TOKEN 对称；不落配置段、不落面板。secret 未配置返回空串，
-  // 与旧「token 留空不校验」同语义；非环回绑定的硬拒在内核 driver.listen。
+  // CORTICO_BRIDGE_TOKEN 对称；不落配置段、不落面板。2026-11-19 起 secret
+  // 未配置返回空串会让内核 listen()/dial() 直接拒（fail-shut，11-13 判例）。
   // 工单二 F1（决定 2）：升级装载一次性删 config.json 里 worlds.neko.token 残键。
   // 清理是同步文件卫生（不连接、不 await，构造纯不破）；create() 没有 log 口，
   // 只含键名的提示先缓冲进实例，start() 拿到 host.log 后逐条回放。

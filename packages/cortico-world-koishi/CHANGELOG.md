@@ -2,6 +2,25 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.2
+
+*2026-11-19 · 能力面收敛 / 声明撤回*
+
+- 与 `cortico-world-onebot-bridge` 同批收敛：新增逐字相同的 `src/guard.js` 两闸（本机文件引用 + 静态目录白名单），`koishi_call` 不再透传目录外扩展动作。
+- 撤回 `0.1.1` 节里**从未发布**的 `unsafe` 声明；不写 `safe`（`TAGS.md:31/:42`）。
+- `describe.json` 按新工具声明重新生成；契约测试同步版本与 tags；`node --test "test/*.test.mjs"` 40/40。
+
+## 0.1.1
+
+
+> 注：本节未发布；其中「自声明 unsafe」一条已由下一版撤回，能力面收敛见下一节。
+*2026-11-19 · 安全修复*
+
+- **按 10-22 判例（commit `7dec0b00d`）自声明 `cortico.tags: ["unsafe", ...]`**。
+  理由与 `cortico-world-onebot-bridge` 相同：本包复用 OneBot v11 正向 WS 与通用
+  action 调度面，`koishi_call` 的开放 `params` 能把本机任意文件发进群聊或私聊。
+- README 补安全声明章节。
+
 ## 0.1.0
 
 首个版本（v1 薄壳，不发布）：Cortico 侧 Koishi 插件兼容入口，**不写 Koishi 协议码**，

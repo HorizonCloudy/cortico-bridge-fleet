@@ -10,6 +10,7 @@ import { BridgeDriver, type DriverHandlers, type Negotiated } from '../src/drive
 import type { MsgFrame, ToolAnn } from '../src/frames.ts';
 
 const log: Logger = { trace() {}, debug() {}, info() {}, warn() {}, error() {}, emit() {}, child() { return log; } };
+const TEST_SECRET = 'test-bridge-secret';
 
 function collect() {
   const ready: Negotiated[] = [];
@@ -60,14 +61,16 @@ test('旧桥形态：ready 无 caps → cbp=false、caps 交集空、v 按 1 放
     async (url) => {
       const c = collect();
       const d = new BridgeDriver(
-        { url, token: 'tk', agent: { name: 'w', version: '0.1.0', sha: 'aaaa11111' }, caps: ['msg-v2'], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log },
+        { url, authToken: TEST_SECRET, agent: { name: 'w', version: '0.1.0', sha: 'aaaa11111' }, caps: ['msg-v2'], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log },
         c.handlers,
       );
       await d.start();
       await new Promise((r) => setTimeout(r, 300));
       assert.ok(helloSeen, 'hello 必须发出');
-      assert.equal((helloSeen as { t?: string }).t, 'hello');
-      assert.equal((helloSeen as { token?: string }).token, 'tk', '旧字段必须并集带上');
+      const hello = helloSeen as Record<string, unknown>;
+      assert.equal(hello.t, 'hello');
+      assert.equal('token' in hello, false, '2026-11-19：帧体不再带 token 位，凭据只走 Upgrade 头');
+      assert.equal('auth' in hello, false, 'hello 帧面不得出现任何鉴权位');
       assert.deepEqual((helloSeen as { v_support?: number[] }).v_support, [1]);
       assert.equal(c.ready.length, 1);
       assert.equal(c.ready[0]!.cbp, false);
@@ -88,7 +91,7 @@ test('旧 msg 帧（dict conv）兼容读成 CBP MsgFrame', async () => {
     },
     async (url) => {
       const c = collect();
-      const d = new BridgeDriver({ url, token: '', agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
+      const d = new BridgeDriver({ url, authToken: TEST_SECRET, agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
       await d.start();
       await new Promise((r) => setTimeout(r, 300));
       assert.equal(c.msgs.length, 1);
@@ -114,7 +117,7 @@ test('CBP 桥形态：ready 带 caps → 交集生效；send 用 CBP 形并由 a
     },
     async (url) => {
       const c = collect();
-      const d = new BridgeDriver({ url, token: '', agent: { name: 'w', version: '1', sha: 's' }, caps: ['msg-v2', 'catalog'], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
+      const d = new BridgeDriver({ url, authToken: TEST_SECRET, agent: { name: 'w', version: '1', sha: 's' }, caps: ['msg-v2', 'catalog'], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
       await d.start();
       await new Promise((r) => setTimeout(r, 300));
       assert.equal(c.ready[0]!.cbp, true);
@@ -140,7 +143,7 @@ test('版本不相交 → 断连，不产 ready', async () => {
     },
     async (url) => {
       const c = collect();
-      const d = new BridgeDriver({ url, token: '', agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
+      const d = new BridgeDriver({ url, authToken: TEST_SECRET, agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
       await d.start();
       await new Promise((r) => setTimeout(r, 400));
       assert.equal(c.ready.length, 0);
@@ -158,7 +161,7 @@ test('旧桥 tools 帧 items 收敛成 ToolAnn；坏项丢弃', async () => {
     },
     async (url) => {
       const c = collect();
-      const d = new BridgeDriver({ url, token: '', agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
+      const d = new BridgeDriver({ url, authToken: TEST_SECRET, agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
       await d.start();
       await new Promise((r) => setTimeout(r, 300));
       assert.equal(c.catalogs.length, 1);
@@ -173,7 +176,7 @@ test('旧桥 tools 帧 items 收敛成 ToolAnn；坏项丢弃', async () => {
 
 test('send 在未连接时不回悬案：直接确定失败', async () => {
   const c = collect();
-  const d = new BridgeDriver({ url: 'ws://127.0.0.1:1', token: '', agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
+  const d = new BridgeDriver({ url: 'ws://127.0.0.1:1', authToken: TEST_SECRET, agent: { name: 'w', version: '1', sha: 's' }, caps: [], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log }, c.handlers);
   const res = await d.send('aiocqhttp:GroupMessage:1', 'x');
   assert.equal(res.ok, false);
   assert.equal(res.uncertain, undefined);

@@ -13,7 +13,7 @@ import {
 import { OneBotBridgeWorld, ONEBOT_TOOL_DECLS } from './world.js';
 
 const TOOL_SUMMARIES = {
-  onebot_call: { zh: '调用 v11 action；只读直接执行，写动作要求本轮有实证发起方（缺入站记录回 60004）并按策略需 confirm=true；凭证动作不进桥（10002）。', en: 'Call a v11 action; reads run immediately, writes need an identified inbound sender this turn (60004 without one) and follow the write policy; credential actions are not served (10002).' },
+  onebot_call: { zh: '只调用 v11 静态目录内的 action；只读直接执行，写动作要求本轮有实证发起方（缺入站记录回 60004）并按策略需 confirm=true；凭证动作、目录外扩展动作、参数里的本机文件路径一律拒（10002）。', en: 'Call only actions from the static v11 catalog; reads run immediately, writes need an identified inbound sender this turn (60004 without one) and follow the write policy; credential actions, non-catalog extension actions and local file references in params are refused (10002).' },
   onebot_actions: { zh: '查 OneBot v11 动作目录、分类与覆盖数。', en: 'Look up the OneBot v11 action catalog, categories and coverage.' },
   onebot_events: { zh: '按类型和时间查已归档的 OneBot 事件。', en: 'Read archived OneBot events by kind and time.' },
   onebot_status: { zh: '看 OneBot 连接、账号、v11 覆盖面与写策略。', en: 'Show OneBot connection, account, v11 coverage and write policy.' },

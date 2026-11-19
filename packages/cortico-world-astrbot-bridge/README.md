@@ -136,3 +136,40 @@ World 不得直传该字段；宿主落库时把 `deliver:false` 翻成 `context
   本包验收命令 `npx tsx tools/check_ext.ts <本包>` 暂不可跑（工具件不存在）。
 - 本包 caps 词表（`msg-v2/notice/peer-tools/catalog`）是本件起草：桥端对账前
   它是 INFERENCE，桥端工单引用它即升 FACT。
+
+---
+
+## 安全声明（2026-11-19 · 鉴权子协议已替换）
+
+本包 **不声明任何 warning tag**，`cortico.tags` 里没有 `unsafe`；本包是 dial 侧、
+自己不开监听口，监听面在框架侧 `cortico-bridge-astrbot`（Python 插件，非 Cortico 扩展）。
+
+### 为什么可以撤回，以及为什么不能写 `safe`
+
+`TAGS.md:40` 的「warning tag 一旦任一版本声明即保留」约束的是**已发布版本**。
+上一轮给本包加的 `unsafe` 从未 git commit、从未 npm publish，没有任何版本带过红标，
+撤回合法。`TAGS.md:42` 同时写明平台**没有 `safe` 标签**，标签缺席只代表
+「未声明且未审查」；`TAGS.md:31` 规定词表外 tag 会被 `check:extension` 拒。
+因此本包既不写 `"safe"`，也不自称已获 safe 认证——那是索引仓维护者审查后的状态。
+本声明只交付**能力面收敛的可验证证据**。
+
+### 双端怎么改的
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| 密钥来源 | `worlds.astrbot.token` 配置串 + 面板 | `ctx.secret('CORTICO_BRIDGE_TOKEN')` |
+| 凭据通道 | hello 帧体 `token` 字段 | Upgrade 头 `Authorization: Bearer` |
+| 缺密钥 | 空串照拨 | `start()` 直接拒拨（fail-shut） |
+| URL 凭据 | 未校验 | `isCleanWsUrl()` 判脏即拒 |
+| 框架侧监听 | 无 Origin 校验、默认免密钥 | 无密钥拒绑定、非环回 Origin close 4401、query 凭据拒 |
+
+**破坏性迁移**：两端 `CORTICO_BRIDGE_TOKEN` 必须逐字相同；旧配置里的 `token` 项已删除，
+升级后需在部署环境重新设值，否则服务拒绝监听 / 拒绝拨号。
+
+### 验证证据
+
+- `node --test "tests/*.test.ts"` 全绿（含新增鉴权硬闸）；`tsc --noEmit` 退 0。
+- 框架侧 `pytest tests/ -q` 全量通过；平台 `check:extension` 通过。
+
+- 这是作者侧的能力面收敛证据，**不等于**维护者已审查通过。
+- 最终 `safe` 状态由索引仓维护者审查裁定（`TAGS.md:42`）。

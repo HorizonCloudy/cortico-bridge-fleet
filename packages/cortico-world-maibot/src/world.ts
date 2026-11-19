@@ -209,6 +209,8 @@ export interface WorldHandlers {
 
 export interface WorldOptions {
   cfg: Partial<MaibotConfig> | undefined;
+  /** 共享密钥，单源 = definition.ts 的 ctx.secret('CORTICO_BRIDGE_TOKEN')；空串即拒监听。 */
+  authToken?: string;
   makeDriver?: (cfg: MaibotConfig, log: Logger, handlers: WorldHandlers) => MaibotDriverLike;
 }
 
@@ -262,7 +264,7 @@ export class MaibotBridgeWorld implements World {
         self: WORLD_SELF,
         caps: [...WORLD_CAPS],
         tools: peerToolCatalog(this.cfg),
-        authToken: this.cfg.token !== '' ? this.cfg.token : undefined,
+        authToken: this.opts.authToken ?? '',
         onFrame: handlers.onFrame,
         onState: handlers.onState,
         log: (m, e) => host.log.info(m, e),

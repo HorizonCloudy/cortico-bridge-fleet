@@ -36,3 +36,25 @@ src 共 12 个模块 2424 行。
 `npm run build`（tsc → dist）、`npm test`（先 build 再 `node --test dist/tests/`；
 tests 12 个 .test.ts 与 src 模块一一对应加 driver-auth/driver-loopback 两条边界）。
 离线闸由仓根 `node --test tests/` 统一跑。
+
+---
+
+## 安全声明（2026-11-19 · 能力面已收敛）
+
+本包是普通 npm 库，不是 Cortico 扩展，没有 `cortico.tags`，**不能在索引仓自声明
+`unsafe`**；使用它的 world 扩展也不再声明（上一轮的声明从未发布即撤回，能力面已收敛）。
+本包承担 CBP 双端鉴权收口：
+
+| 门禁 | 落点 | 行为 |
+|---|---|---|
+| 强制密钥 | `DriverOptions.authToken` 必填 | 空值拒绑定、拒拨号，不静默降级 |
+| 凭据通道 | Upgrade 头 `Authorization: Bearer` | query 里的 `token`/`access_token` 见即拒，帧体无 token 位 |
+| 来源校验 | `isLoopbackOrigin()` | 非环回 web origin close 4401；native client 无 Origin 放行 |
+
+依据：`TAGS.md:92` 的 `unsafe` 定义与作者自声明规则（:30/:42）；10-22 判例
+commit `7dec0b00d`；11-13 判例 commit `5b453aa0b`；`spec/SECURITY-CBP.md` §3。
+浏览器 WebSocket 不受同源策略 / CORS 预检保护，环回监听不构成鉴权。
+
+**破坏性迁移（2026-11-19）**：`CORTICO_BRIDGE_TOKEN` 必填。旧部署两端未配时
+listen 拒绑定、dial 拒建链，表现为桥静默断连。Cortico 侧在宿主 secret 里设同名键，
+框架侧在插件进程环境变量设逐字相同的值；密钥不进配置串、面板、hello 帧体或 URL query。

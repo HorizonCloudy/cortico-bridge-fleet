@@ -15,6 +15,7 @@ import { DEFAULTS, type AstrbotBridgeConfig } from '../src/config.ts';
 import { AstrbotBridgeWorld } from '../src/world.ts';
 
 const log: Logger = { trace() {}, debug() {}, info() {}, warn() {}, error() {}, emit() {}, child() { return log; } };
+const TEST_SECRET = 'test-bridge-secret';
 
 const ACTOR: Actor = {
   platform: 'aiocqhttp',
@@ -55,7 +56,7 @@ async function withCbpServer(
 
 function mkDriver(url: string, handlers: DriverHandlers) {
   return new BridgeDriver(
-    { url, token: '', agent: { name: 'w', version: '1', sha: 's' }, caps: ['msg-v2'], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log },
+    { url, authToken: TEST_SECRET, agent: { name: 'w', version: '1', sha: 's' }, caps: ['msg-v2'], tools: [], reconnectBaseMs: 200, reconnectMaxMs: 1000, log },
     handlers,
   );
 }

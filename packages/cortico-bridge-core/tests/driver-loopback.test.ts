@@ -9,6 +9,7 @@ import { RET } from '../src/errors.js';
 const agent = (name: string) => ({ name, version: '0.1.0', sha: 'abababababababab' });
 const caps = ['images', 'notices'];
 const SELF = { id: 'bot-1', name: 'Cortico', proven: true };
+const TEST_SECRET = 'test-bridge-secret';
 
 async function waitFor(cond: () => boolean, ms = 2000): Promise<void> {
   const t0 = Date.now();
@@ -21,7 +22,7 @@ async function waitFor(cond: () => boolean, ms = 2000): Promise<void> {
 test('dial and listen handshake, then relay a msg frame both ways', async () => {
   const gotAtListen: Frame[] = [];
   const gotAtDial: Frame[] = [];
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -37,7 +38,7 @@ test('dial and listen handshake, then relay a msg frame both ways', async () => 
   const port = listen.listenPort;
   assert.ok(port > 0, 'listen bound an ephemeral port');
 
-  const dial = new BridgeDriver({
+  const dial = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'dial',
     url: `ws://127.0.0.1:${port}`,
     agent: agent('dial'), self: SELF,
@@ -76,14 +77,14 @@ test('dial and listen handshake, then relay a msg frame both ways', async () => 
 });
 
 test('start() never rejects even when the dial URL is dead', async () => {
-  const d = new BridgeDriver({ role: 'dial', url: 'ws://127.0.0.1:1', agent: agent('x'), self: SELF, caps: [], tools: [] });
+  const d = new BridgeDriver({ authToken: TEST_SECRET, role: 'dial', url: 'ws://127.0.0.1:1', agent: agent('x'), self: SELF, caps: [], tools: [] });
   await d.start();
   assert.equal(d.isReady, false);
   d.stop();
 });
 
 test('bad frames are swallowed and counted, never thrown', async (t) => {
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -99,7 +100,7 @@ test('bad frames are swallowed and counted, never thrown', async (t) => {
   t.after(() => listen.stop());
 
   // raw client: complete the handshake, then push junk
-  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`, { headers: { authorization: `Bearer ${TEST_SECRET}` } });
   await new Promise((r) => ws.once('open', r));
   const hello: Frame = {
     ...newHead('hello'),
@@ -122,7 +123,7 @@ test('bad frames are swallowed and counted, never thrown', async (t) => {
 });
 
 test('hello with a disjoint version set is refused with a close (60001 path)', async (t) => {
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -133,7 +134,7 @@ test('hello with a disjoint version set is refused with a close (60001 path)', a
   await listen.start();
   t.after(() => listen.stop());
 
-  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`, { headers: { authorization: `Bearer ${TEST_SECRET}` } });
   await new Promise((r) => ws.once('open', r));
   const badHello: Frame = {
     ...newHead('hello'),
@@ -159,7 +160,7 @@ test('hello with a disjoint version set is refused with a close (60001 path)', a
 });
 
 test('call is correlated to its reply by rid', async (t) => {
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -173,7 +174,7 @@ test('call is correlated to its reply by rid', async (t) => {
     },
   });
   await listen.start();
-  const dial = new BridgeDriver({ role: 'dial', url: `ws://127.0.0.1:${listen.listenPort}`, agent: agent('dial'), self: SELF, caps, tools: [] });
+  const dial = new BridgeDriver({ authToken: TEST_SECRET, role: 'dial', url: `ws://127.0.0.1:${listen.listenPort}`, agent: agent('dial'), self: SELF, caps, tools: [] });
   await dial.start();
   t.after(() => {
     dial.stop();
@@ -207,7 +208,7 @@ test('call is correlated to its reply by rid', async (t) => {
 
 test('callTool sends the turn and actor verbatim and the kernel answers unknown turns with 60004', async (t) => {
   const seen: Frame[] = [];
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -218,7 +219,7 @@ test('callTool sends the turn and actor verbatim and the kernel answers unknown 
     onFrame: (f) => seen.push(f),
   });
   await listen.start();
-  const dial = new BridgeDriver({ role: 'dial', url: `ws://127.0.0.1:${listen.listenPort}`, agent: agent('dial'), self: SELF, caps, tools: [] });
+  const dial = new BridgeDriver({ authToken: TEST_SECRET, role: 'dial', url: `ws://127.0.0.1:${listen.listenPort}`, agent: agent('dial'), self: SELF, caps, tools: [] });
   await dial.start();
   t.after(() => {
     dial.stop();
@@ -244,7 +245,7 @@ test('callTool sends the turn and actor verbatim and the kernel answers unknown 
 test('a self-reported actor that disagrees with the inbound record is overwritten and reported', async (t) => {
   const seen: Frame[] = [];
   const degraded: string[] = [];
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -259,7 +260,7 @@ test('a self-reported actor that disagrees with the inbound record is overwritte
   });
   await listen.start();
   const port = listen.listenPort;
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers: { authorization: `Bearer ${TEST_SECRET}` } });
   t.after(() => {
     ws.close();
     listen.stop();
@@ -316,7 +317,7 @@ test('a self-reported actor that disagrees with the inbound record is overwritte
 
 test('handshake carries self; proven:false delivers a self-unknown degrade and strips a lying self_echo cap', async (t) => {
   const got: Frame[] = [];
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -328,7 +329,7 @@ test('handshake carries self; proven:false delivers a self-unknown degrade and s
   });
   await listen.start();
   t.after(() => listen.stop());
-  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`, { headers: { authorization: `Bearer ${TEST_SECRET}` } });
   t.after(() => ws.close());
   await new Promise((r) => ws.once('open', r));
   const wire: Frame[] = [];
@@ -367,7 +368,7 @@ test('handshake carries self; proven:false delivers a self-unknown degrade and s
 });
 
 test('self.id changing on one connection is churn: the frame is dropped and reported', async (t) => {
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -378,7 +379,7 @@ test('self.id changing on one connection is churn: the frame is dropped and repo
   });
   await listen.start();
   t.after(() => listen.stop());
-  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`, { headers: { authorization: `Bearer ${TEST_SECRET}` } });
   t.after(() => ws.close());
   await new Promise((r) => ws.once('open', r));
   const wire: Frame[] = [];
@@ -409,7 +410,7 @@ test('self.id changing on one connection is churn: the frame is dropped and repo
 
 test('listen sets maxPayload from pins caps.cbp.frame_bytes, never a hardcoded literal', async (t) => {
   const { loadPins } = await import('../src/pins.js');
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -423,7 +424,7 @@ test('listen sets maxPayload from pins caps.cbp.frame_bytes, never a hardcoded l
   assert.equal(listen.maxPayloadBytes, loadPins().caps.cbp.frame_bytes);
 
   // a frame over the bound is refused with close 1009 by the ws layer itself
-  const tight = new BridgeDriver({
+  const tight = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -435,7 +436,7 @@ test('listen sets maxPayload from pins caps.cbp.frame_bytes, never a hardcoded l
   });
   await tight.start();
   t.after(() => tight.stop());
-  const ws = new WebSocket(`ws://127.0.0.1:${tight.listenPort}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${tight.listenPort}`, { headers: { authorization: `Bearer ${TEST_SECRET}` } });
   await new Promise((r) => ws.once('open', r));
   ws.send(encodeFrame({ ...newHead('hello'), t: 'hello', v: 1, agent: agent('peer'), self: SELF, v_support: [1], caps: [], tools: [] }));
   await waitFor(() => tight.isReady);
@@ -447,7 +448,7 @@ test('listen sets maxPayload from pins caps.cbp.frame_bytes, never a hardcoded l
 // ---- K1 follow-up: the handshake tool set must be readable by consumers (F1 authority).
 
 test('peerTools exposes the handshake declaration before any catalog frame', async () => {
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'listen',
     host: '127.0.0.1',
     port: 0,
@@ -459,7 +460,7 @@ test('peerTools exposes the handshake declaration before any catalog frame', asy
   await listen.start();
   assert.deepEqual(listen.peerTools(), [], 'nobody connected yet');
   const port = listen.listenPort;
-  const dial = new BridgeDriver({
+  const dial = new BridgeDriver({ authToken: TEST_SECRET,
     role: 'dial',
     url: `ws://127.0.0.1:${port}`,
     agent: agent('dial'), self: SELF,

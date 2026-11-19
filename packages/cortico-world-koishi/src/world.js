@@ -18,6 +18,7 @@ import {
 import { actionInfo, coverage, extensionsFor, listCategories, searchActions, V11_EVENT_KINDS } from './catalog.js';
 import { detectImplementation } from './implementations.js';
 import { OneBotDriver } from './driver.js';
+import { guardParams, guardActionName } from './guard.js';
 
 const fail = (text) => ({ text, failed: true });
 
@@ -32,7 +33,7 @@ export const FORBIDDEN_CREDENTIAL_ACTIONS = Object.freeze(['get_cookies', 'get_c
  *    查无回 60004（§1.3-2）；member 缺位 anon=unknown、self 未实证无法判 anon，均只许只读。
  * 3. 策略闸：readOnly / writePolicy / confirm；confirm 只在 anon=="identified" 走到（§1.3-3，
  *    堵掉 koishi_call 自报 confirm 的洞——args 自报的 actor/turn 根本进不了本函数）。
- * 未知/扩展动作按写处理（entry==null → isWrite=true），交给策略拦。
+ * 目录外动作已由 #callTool 第 1 闸拒掉；走到这里时 entry 必非 null。
  */
 export function gateAction({ name, entry, readOnly, writePolicy, confirm, msg = null, selfId = null }) {
   if (FORBIDDEN_CREDENTIAL_ACTIONS.includes(name)) {
@@ -146,7 +147,7 @@ export const KOISHI_TOOL_DECLS = [
   {
     name: 'koishi_call',
     tags: ['act'],
-    description: 'Call any OneBot v11 action on the dialed implementation (NapCat-style forward WebSocket; this world speaks no Koishi protocol). Read-only actions run immediately. Write actions run only on a turn with an identified inbound sender (a turn without an inbound message is refused, 60004) and follow writePolicy (default: confirm=true required). Credential actions get_cookies/get_csrf_token/get_credentials are not served (10002).',
+    description: 'Call only actions from the static v11 catalog on the dialed implementation (NapCat-style forward WebSocket; this world speaks no Koishi protocol). Implementation-specific extension actions are no longer forwarded (10002). Any local file reference in params - drive letters, UNC, absolute paths, .., file:// or [CQ:*,file=...] - is refused before the call leaves the process; media must be an http(s) URL or base64 data. Read-only actions run immediately. Write actions run only on a turn with an identified inbound sender (a turn without an inbound message is refused, 60004) and follow writePolicy (default: confirm=true required). Credential actions get_cookies/get_csrf_token/get_credentials are not served (10002).',
     parameters: {
       type: 'object',
       properties: {
@@ -263,14 +264,21 @@ export class KoishiBridgeWorld {
     const s = this.#s;
     const name = String(args.action ?? '').trim();
     if (!name) return fail('koishi_call 需要 action 名。');
+    const params = args.params && typeof args.params === 'object' ? args.params : {};
+    // 第 0 闸：本机文件引用（10-22 判例）。排在所有判定之前，命中即拒且绝不出网。
+    const fileGuard = guardParams(params);
+    if (fileGuard.block) return fail(fileGuard.reason);
+    // 第 1 闸：动作名白名单。能力面由包内静态目录决定，模型不能运行时发明 action。
+    const entry = actionInfo(name);
+    const nameGuard = guardActionName(name, entry);
+    if (nameGuard.block) return fail(nameGuard.reason);
     const gate = gateAction({
-      name, entry: actionInfo(name), readOnly: s.readOnly, writePolicy: s.writePolicy, confirm: args.confirm,
+      name, entry, readOnly: s.readOnly, writePolicy: s.writePolicy, confirm: args.confirm,
       msg: this.#lastMsg, selfId: this.#status.selfId,
     });
     if (gate.block) return fail(gate.reason);
     const driver = this.#driver;
     if (!driver || !driver.connected) return fail(`${name}: OneBot 实现端未连接。`);
-    const params = args.params && typeof args.params === 'object' ? args.params : {};
     const res = await driver.callSafe(name, params, args.timeout_ms);
     if (!res.ok) return fail(`${name} 失败：${res.error}`);
     const note = name === 'delete_msg'
@@ -282,7 +290,7 @@ export class KoishiBridgeWorld {
   #actionsTool(args) {
     if (args.name) {
       const entry = actionInfo(String(args.name));
-      return { text: entry ? JSON.stringify(entry) : `未收录 ${args.name}：可能是实现端扩展动作，可直接用 koishi_call 调用（按写动作过闸）。` };
+      return { text: entry ? JSON.stringify(entry) : `未收录 ${args.name}：目录外扩展动作不再透传（10002）；如确需启用，请登记进 src/catalog.js。` };
     }
     if (args.query) {
       const hits = searchActions(String(args.query));

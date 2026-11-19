@@ -2,6 +2,27 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。
 
+## 0.1.5
+
+*2026-11-19 · 能力面收敛 / 声明撤回*
+
+- **能力面收敛（10-22）**：新增 `src/guard.js` 两闸——`guardParams` 出网前拒本机文件引用（盘符/UNC/绝对路径/`..`/`file://`/CQ 码/深嵌套），`guardActionName` 只放行静态目录 action，实现端扩展动作不再透传。
+- 撤回 `0.1.4` 节里**从未发布**的 `unsafe` 声明；`cortico.tags` 不再含 warning tag。不写 `safe`（词表外 tag 会被 `check:extension` 拒）。
+- 工具声明 / summary / `describe.json` 同步重写；新增 `test/guard.test.mjs` 9 条；`node --test "test/*.test.mjs"` 34/34，selfcheck 62 闸。
+
+## 0.1.4
+
+
+> 注：本节未发布；其中「自声明 unsafe」一条已由下一版撤回，能力面收敛见下一节。
+*2026-11-19 · 安全修复*
+
+- **按 10-22 判例（commit `7dec0b00d`）自声明 `cortico.tags: ["unsafe", ...]`**。
+  理由：`onebot_call` 是开放 dispatcher，`params` 为 `additionalProperties: true`，
+  实现端扩展 action 原样透传（`src/catalog.js:12`）；OneBot v11 的 `file` 参数可指向
+  本机路径，模型能把本机任意文件发到群聊或私聊。凭证三动作已挡（10002），
+  但文件外发能力面未收敛，不能靠「没声明」冒充 safe（`TAGS.md:42`）。
+- README 补安全声明章节，写清风险面与使用前置条件。
+
 ## 0.1.3
 
 - 删 `onebot`、`onebot-v11`：两个词都不在索引仓 29 词词表内。市场抓取端会静默丢掉它们（cortico-extensions scan.mjs:56），既不报错也不提示，结果是按平台筛不到本包。

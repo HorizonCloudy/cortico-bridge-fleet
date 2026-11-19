@@ -15,7 +15,7 @@ import {
 import { KoishiBridgeWorld, KOISHI_TOOL_DECLS } from './world.js';
 
 const TOOL_SUMMARIES = {
-  koishi_call: { zh: '调用 v11 action（拨 NapCat 类正向 WS，非 Koishi 协议）；只读直接执行，写动作要求本轮有实证发起方（缺入站记录回 60004）并按策略需 confirm=true；凭证动作不进桥（10002）。', en: 'Call a v11 action over the dialed v11 implementation (NapCat-style forward WS, not the Koishi protocol); reads run immediately, writes need an identified inbound sender this turn (60004 without one) and follow the write policy; credential actions are not served (10002).' },
+  koishi_call: { zh: '只调用 v11 静态目录内的 action（拨 NapCat 类正向 WS，非 Koishi 协议）；只读直接执行，写动作要求本轮有实证发起方（缺入站记录回 60004）并按策略需 confirm=true；凭证动作、目录外扩展动作、参数里的本机文件路径一律拒（10002）。', en: 'Call only actions from the static v11 catalog over the dialed implementation (NapCat-style forward WS, not the Koishi protocol); reads run immediately, writes need an identified inbound sender this turn (60004 without one) and follow the write policy; credential actions, non-catalog extension actions and local file references in params are refused (10002).' },
   koishi_actions: { zh: '查 OneBot v11 动作目录、分类、覆盖数与实现识别结果。', en: 'Look up the OneBot v11 action catalog, categories, coverage and implementation detection.' },
   koishi_events: { zh: '按类型和时间查已归档的 OneBot v11 事件。', en: 'Read archived OneBot v11 events by kind and time.' },
   koishi_status: { zh: '看桥连接、账号、识别出的实现、v11 覆盖面与写策略。', en: 'Show bridge connection, account, detected implementation, v11 coverage and write policy.' },

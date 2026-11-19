@@ -2,10 +2,15 @@
  * `worlds.astrbot-bridge` 配置段 —— 形状钉自两份先例 + _BUILD-PLAN §3.2 模板：
  * - 旧旋钮逐字收编自 cortico-world-astrbot@4725feee6 src/config.ts:9-50
  *   （mode/nameAliases/includeTime/reconnect/maxSendsPerMinute/channelHint）。
- * - egress（出站门，缺省 false）与 token 来自 _BUILD-PLAN §3.2 definition 模板行。
+ * - egress（出站门，缺省 false）来自 _BUILD-PLAN §3.2 definition 模板行。
  * - ConfigGroup 路径必须全部落在 `worlds.<id>.` 段内，否则 dryMountWorld 判 fail
  *   （cortico src/extensions/dry-mount.ts:47-63,217 @836238311）；
- *   x-hot 语义：false=改完需重启实例（先例 README：wsUrl/token 改完要重启）。
+ *   x-hot 语义：false=改完需重启实例。
+ *
+ * 2026-11-19（SECURITY-CBP.md:121，10-22 / 11-13 索引仓判例）：`token` 配置串与
+ * 面板项一并删除。CBP 共享密钥单源 = `ctx.secret('CORTICO_BRIDGE_TOKEN')`，只走
+ * HTTP Upgrade 的 `Authorization: Bearer` 头；不落 config.json、不进面板、不进日志。
+ * 缺密钥时 driver 直接拒拨（fail-shut），不再有「环回免鉴权」这条降级路。
  */
 import type { ConfigGroup } from 'cortico/core/types.ts';
 
@@ -17,7 +22,6 @@ export interface AstrbotBridgeConfig {
   enabled: boolean;
   /** 桥（AstrBot 侧插件）的 WS 监听地址；本包是客户端拨过去。 */
   url: string;
-  token: string;
   /** 出站门；缺省关（_BUILD-PLAN §3.2）。关着时发送工具直接回 60005。 */
   egress: boolean;
   /** 每分钟出站上限，0 不限；缺省 20（§3.2 模板 ratePerMin）。 */
@@ -35,7 +39,6 @@ export const DEFAULTS: AstrbotBridgeConfig = {
   enabled: false,
   // 对端监听口钉先例 metadata.yaml help 文案的 17999（37c1e6ccd help：ws://<本机地址>:17999）。
   url: 'ws://127.0.0.1:17999',
-  token: '',
   egress: false,
   maxSendsPerMinute: 20,
   mode: 'mention',
@@ -52,7 +55,6 @@ export function normalizeConfig(raw: Partial<AstrbotBridgeConfig> | undefined): 
   return {
     enabled: c.enabled === true,
     url: typeof c.url === 'string' && c.url !== '' ? c.url : DEFAULTS.url,
-    token: typeof c.token === 'string' ? c.token : '',
     egress: c.egress === true,
     maxSendsPerMinute: Math.max(0, Math.floor(num(c.maxSendsPerMinute, DEFAULTS.maxSendsPerMinute))),
     mode: c.mode === 'all' ? 'all' : 'mention',
@@ -71,19 +73,13 @@ export const CONFIG_GROUP: ConfigGroup = {
   schema: {
     type: 'object',
     title: 'AstrBot 桥（CBP）',
-    description: 'Cortico 侧拨 AstrBot 桥的连接、出站门与消息范围。',
+    description: 'Cortico 侧拨 AstrBot 桥的连接、出站门与消息范围。共享密钥不在此处配置，见部署环境 CORTICO_BRIDGE_TOKEN。',
     properties: {
       [`worlds.${WORLD_ID}.url`]: {
         type: 'string',
         title: '桥地址',
         'x-hot': false,
         description: '形如 ws://192.0.2.10:17999。改完重启本 World 生效。',
-      },
-      [`worlds.${WORLD_ID}.token`]: {
-        type: 'string',
-        title: '桥 token',
-        'x-hot': false,
-        description: '与桥一致；留空表示桥不校验。',
       },
       [`worlds.${WORLD_ID}.egress`]: {
         type: 'boolean',

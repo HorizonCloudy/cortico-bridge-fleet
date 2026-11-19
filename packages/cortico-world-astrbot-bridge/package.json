@@ -1,6 +1,6 @@
 {
   "name": "@horizoncloudy/cortico-world-astrbot-bridge",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "type": "module",
   "description": "经 CBP 连接 AstrBot 的桥，收编旧私有帧协议并保留两阶段升级路径。",
   "license": "MIT",

@@ -53,7 +53,7 @@
 | F1 | `hello` | `self` | 新增必填 | 必填 | 无默认，握手首帧必须带 | — | 三方同批改 |
 | F2 | `ready` | `self` | 新增必填 | 必填 | 无默认，握手首帧必须带 | — | 三方同批改 |
 | F3 | `call` | `turn`、`actor` | 新增必填 | 两者必填 | 无默认 | 60004 | 三方同批改 |
-| F4 | 传输 | `Authorization` 头 | token 禁走 URL query，禁上帧面 | — | 无 token=环回限定 | close 4401 | 配置迁移 |
+| F4 | 传输 | `Authorization` 头 | token 禁走 URL query，禁上帧面 | — | 无 token=环回限定（**F20 已废止**） | close 4401 | 配置迁移 |
 | F5 | `hello` | `v_support` | schema 放宽 | 必填不变 | `[1]` | 60001 | 零 |
 | F6 | `reply` | `error` | 解码器补 enforce | `ok:false` 时必填 | — | 吞帧计 `framesBad` | 近零 |
 | F7 | `ack`/`call`/`reply`/`msg` | `rid`、`conv` | 解码器补长度上限 | 不变 | — | 吞帧计 `framesBad` | 零 |
@@ -69,6 +69,43 @@
 | F17 | （无） | `t:'send'` 等 | 不入表，实现改道 call | — | — | 60005/60007 不变 | 包内改 |
 | F18 | 根 | `description` | 改文案纠错 | — | — | — | 无 |
 | F19 | `event`/`reply` | 文案字节 | 统一 mnemonic 前缀 | — | — | 60001、60007 | 零 |
+| F20 | 传输（非帧表） | `Authorization` / `Origin` / `authToken` | 强制密钥 + 来源校验，废止「环回免鉴权」 | 密钥必填，无默认 | 缺密钥 = 拒绑定/拒建链 | close 4401 | **破坏性**：两端须配同名密钥 |
+
+### F20 强制密钥与来源校验（2026-11-19，SECURITY-CBP.md §3 决定 7）
+
+- **不改帧表**：本条只动 HTTP Upgrade 层与配置通道。`CBP-v1.json` 与
+  `conformance.json` 均不变；hello 帧体原本就无 token 位（`SECURITY-CBP.md:118`），
+  本次是把 astrbot 私有帧的兼容位一并移除，不是新增/删除 schema 字段。
+- **废止 F4 的「无 token=环回限定」**：浏览器 WebSocket 不受同源策略/CORS 预检保护，
+  本机任意网页都能拨 `ws://127.0.0.1:<port>`，环回监听不构成鉴权。依据索引仓
+  10-22（commit `7dec0b00d`）与 11-13（commit `5b453aa0b`）两条判例。
+- **落地**：`authToken` 类型层必填；`listen()` 无 token 拒绑定
+  `door_closed: token required`，`dial()` 无 token 拒建链 `dial_refused: token required`；
+  `Origin` 仅允无 Origin（native client）或环回 web origin，其余 close 4401；
+  `token`/`access_token` query 见即拒；`Authorization: Bearer` 头逐字匹配。
+- **凭据通道**：Cortico 侧 `ctx.secret('CORTICO_BRIDGE_TOKEN')`，框架侧同名环境变量。
+  `worlds.astrbot.token` / `worlds.maibot.token` 配置串与面板项删除，hello 帧体不留
+  token 位，URI 活闸拒凭据 query。
+- **迁移代价**：旧部署未配密钥时两端 fail-shut，表现为桥静默断连。必须两端设逐字
+  相同的值后重启，不是故障而是设计行为。
+- **标签**：`cortico-world-onebot-bridge`、`cortico-world-koishi`（10-22 类），
+  `cortico-world-maibot`、`cortico-world-neko`（11-13 类）按 `TAGS.md:42` 自声明
+  `unsafe`；`cortico-world-qq-digest` 经核不适用；`cortico-world-astrbot-bridge`
+  为 dial 侧，暂不声明（warning tag 不可撤回，留待仓主裁决）。
+  **（本条标签口径已由 F21 取代：声明从未发布即撤回，改为收敛能力面。）**
+
+### F21 能力面收敛与撤回未发布的 warning 声明（SECURITY-CBP.md §3 决定 8）
+
+- 裁决出处：`SECURITY-CBP.md` §3 决定 8（2026-11-19 二次修订）。
+- 撤回：4 个包的 `unsafe` 声明从未 commit / publish，按 `TAGS.md:40` 的适用边界撤回；
+  不写 `safe`（词表外 tag 会被 `check:extension` 拒，`TAGS.md:31/:42`）。
+- 10-22 类新增 `src/guard.js` 双闸：本机文件引用（盘符 / UNC / 绝对路径 / `..` /
+  `file://` / CQ 码 / 深嵌套）与动作名静态目录白名单；排在身份、策略、连接判定之前，
+  零出网。两包 `guard.js` 逐字相同，`test/guard.test.mjs` 断言 sha256 一致，新增 18 条用例。
+- 11-13 类复核能力面：`egress` 默认关、未申报能力本地 60002、静态工具表；F20 的
+  Bearer + Origin + fail-shut 已堵来源面，不重开帧表设计。
+- 双端：Cortico world 包 + 框架 Python 桥均有改动与测试（框架侧为 F20 落地件）。
+- 迁移代价：无新增；F20 的 `CORTICO_BRIDGE_TOKEN` 必填口径不变。
 
 ### F1/F2 `hello` 与 `ready` 各增必填 `self`（SECURITY-CBP.md §2）
 

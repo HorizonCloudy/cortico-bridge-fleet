@@ -7,11 +7,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WebSocket } from 'ws';
-import { BridgeDriver, type DriverState } from '../src/driver.js';
+import { BridgeDriver, isLoopbackOrigin, type DriverState } from '../src/driver.js';
 import { encodeFrame, newHead, type Frame } from '../src/frames.js';
 
 const agent = (name: string) => ({ name, version: '0.1.0', sha: 'abababababababab' });
 const SELF = { id: 'bot-1', name: 'Cortico', proven: true };
+const TEST_SECRET = 'test-bridge-secret';
 
 function waitFor(cond: () => boolean, ms = 2000): Promise<void> {
   const t0 = Date.now();
@@ -94,7 +95,7 @@ test('Authorization: Bearer completes the handshake; missing or wrong header get
   ok.close();
   await waitFor(() => !listen.isReady);
 
-  const missing = new WebSocket(url);
+  const missing = new WebSocket(url); // no Authorization header at all
   assert.equal(await closedCode(missing), 4401);
   const wrong = new WebSocket(url, { headers: { authorization: 'Bearer nope' } });
   assert.equal(await closedCode(wrong), 4401);
@@ -130,7 +131,7 @@ test('a dial-role driver authenticates with the header, not the URL', async (t) 
 
 test('non-loopback bind without a token is refused: door_closed', async (t) => {
   const states: DriverState[] = [];
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: '',
     role: 'listen',
     host: '0.0.0.0',
     port: 0,
@@ -170,7 +171,7 @@ test('no credential value ever reaches onState.lastError or log()', async (t) =>
   };
   const logSink = (m: string, e?: Record<string, unknown>) => record(`${m}|${JSON.stringify(e ?? null)}`);
   // door_closed path (public bind, refused)
-  const listen = new BridgeDriver({
+  const listen = new BridgeDriver({ authToken: '',
     role: 'listen', host: '0.0.0.0', port: 0, agent: agent('listen'), self: SELF, caps: [], tools: [],
     onState: (s) => record(s.lastError), log: logSink,
   });
@@ -186,7 +187,7 @@ test('no credential value ever reaches onState.lastError or log()', async (t) =>
     /* refused or not — the capture assertions below run either way */
   });
   // dial error path against a url that carries the secret in its query
-  const dial = new BridgeDriver({
+  const dial = new BridgeDriver({ authToken: '',
     role: 'dial', url: `ws://127.0.0.1:1/?token=${secret}`, agent: agent('dial'), self: SELF, caps: [], tools: [],
     onState: (s) => record(s.lastError), log: logSink,
   });
@@ -202,4 +203,86 @@ test('no credential value ever reaches onState.lastError or log()', async (t) =>
   for (const s of captured) {
     assert.ok(!/[?&](?:access_)?token=(?!<redacted>)[^\s&"]/.test(s), `unredacted token tail: ${s}`);
   }
+});
+
+// ---- 2026-11-19 hardening, 11-13 判例 (elymes-nte-web): a loopback WebSocket is
+// reachable by any web page, so "loopback needs no key" and "trust the Origin"
+// are both gone. Both roles fail shut, and browser origins are checked.
+
+test('loopback listener without a token is refused: door_closed: token required', async (t) => {
+  const states: DriverState[] = [];
+  const listen = new BridgeDriver({ authToken: '',
+    role: 'listen', host: '127.0.0.1', port: 0, agent: agent('listen'), self: SELF, caps: [], tools: [],
+    onState: (s) => states.push(s),
+  });
+  await listen.start();
+  t.after(() => listen.stop());
+  assert.equal(listen.listenPort, 0, 'no anonymous loopback bind');
+  assert.equal(listen.counters.listenErrors, 1);
+  assert.ok(states.some((s) => s.lastError === 'door_closed: token required'));
+});
+
+test('dial without a token refuses to open a socket', async (t) => {
+  const states: DriverState[] = [];
+  const dial = new BridgeDriver({ authToken: '',
+    role: 'dial', url: 'ws://127.0.0.1:1', agent: agent('dial'), self: SELF, caps: [], tools: [],
+    onState: (s) => states.push(s),
+  });
+  await dial.start(); // start() still never rejects
+  t.after(() => dial.stop());
+  assert.equal(dial.isReady, false);
+  assert.ok(states.some((s) => s.lastError === 'dial_refused: token required'));
+});
+
+test('a foreign web Origin is refused with 4401 before any frame is read', async (t) => {
+  const secret = 'sekrit-' + Math.random().toString(36).slice(2);
+  const lines: string[] = [];
+  const listen = new BridgeDriver({
+    role: 'listen', host: '127.0.0.1', port: 0, agent: agent('listen'), self: SELF, caps: [], tools: [],
+    authToken: secret,
+    log: (m, e) => lines.push(`${m}|${JSON.stringify(e ?? null)}`),
+  });
+  await listen.start();
+  t.after(() => listen.stop());
+  const url = `ws://127.0.0.1:${listen.listenPort}`;
+  for (const bad of ['https://evil.example', 'http://attacker.test:8080/page', 'null', 'file://']) {
+    const ws = new WebSocket(url, {
+      headers: { authorization: `Bearer ${secret}`, origin: bad },
+    });
+    assert.equal(await closedCode(ws), 4401, `origin ${bad} must be refused`);
+  }
+  assert.equal(listen.isReady, false);
+  assert.ok(lines.some((l) => l.startsWith('origin-refused')), 'driver must log origin-refused');
+  assert.ok(!lines.join('|').includes(secret), 'origin log must never carry the token');
+  assert.ok(!lines.join('|').includes('/page'), 'only scheme+host is logged, never a path');
+});
+
+test('a loopback web Origin is allowed together with the Bearer header', async (t) => {
+  const secret = 'sekrit-' + Math.random().toString(36).slice(2);
+  const listen = new BridgeDriver({
+    role: 'listen', host: '127.0.0.1', port: 0, agent: agent('listen'), self: SELF, caps: [], tools: [],
+    authToken: secret,
+  });
+  await listen.start();
+  t.after(() => listen.stop());
+  const ws = new WebSocket(`ws://127.0.0.1:${listen.listenPort}`, {
+    headers: { authorization: `Bearer ${secret}`, origin: 'http://127.0.0.1:17788' },
+  });
+  await new Promise((r) => ws.once('open', r));
+  ws.send(encodeFrame({
+    ...newHead('hello'), t: 'hello', v: 1, agent: agent('peer'), self: SELF,
+    v_support: [1], caps: [], tools: [],
+  }));
+  await waitFor(() => listen.isReady);
+  ws.close();
+});
+
+test('isLoopbackOrigin rejects opaque, malformed and foreign origins', () => {
+  assert.equal(isLoopbackOrigin('null'), false);
+  assert.equal(isLoopbackOrigin('not-a-url'), false);
+  assert.equal(isLoopbackOrigin('https://evil.example'), false);
+  assert.equal(isLoopbackOrigin('http://192.168.1.7'), false);
+  assert.equal(isLoopbackOrigin('http://127.0.0.1:17788'), true);
+  assert.equal(isLoopbackOrigin('http://localhost:5173'), true);
+  assert.equal(isLoopbackOrigin('https://[::1]:443'), true);
 });

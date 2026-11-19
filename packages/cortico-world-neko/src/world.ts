@@ -127,7 +127,8 @@ export interface BridgeLike {
 
 export interface WorldOptions {
   cfg: Partial<NekoBridgeConfig> | undefined;
-  /** 工单一 F3：共享密钥单源 = definition.ts 的 ctx.secret('CORTICO_BRIDGE_TOKEN')。空串按未配置处理。 */
+  /** 共享密钥单源 = definition.ts 的 ctx.secret('CORTICO_BRIDGE_TOKEN')。
+   *  2026-11-19：空串不再是「免鉴权」，内核 listen()/dial() 直接拒（11-13 判例）。 */
   authToken?: string;
   /** 工单二 F1：残键清理的回放缓冲（create() 没有 log 口，start() 里逐条 warn）。 */
   purgeNotes?: string[];
@@ -258,7 +259,7 @@ export class NekoWorld implements World {
         self: bridgeSelf(this.cfg),
         caps: [...NEKO_CAPS],
         tools: peerToolCatalog(this.cfg),
-        authToken: this.opts.authToken !== undefined && this.opts.authToken !== '' ? this.opts.authToken : undefined,
+        authToken: this.opts.authToken ?? '',
         reconnectBaseMs: this.cfg.reconnectBaseMs,
         reconnectMaxMs: this.cfg.reconnectMaxMs,
         onState: (s) => this.onState(s),

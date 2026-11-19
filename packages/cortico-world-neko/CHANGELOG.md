@@ -2,6 +2,27 @@
 
 每个版本一节 `## <版本号>`；扩展市场按节显示更新说明。发版前批次记在 `## Unreleased`。
 
+## 0.1.5
+
+*2026-11-19 · 能力面收敛 / 声明撤回*
+
+- 撤回 `0.1.4` 节里**从未发布**的 `unsafe` 声明；`cortico.tags` 不再含 warning tag。
+- 同 maibot 复核 11-13 能力面：鉴权三闸 + `egress` 默认关 + 60002 申报闸 + 静态工具表；不重开 CBP v1 帧表设计。
+- README 安全声明改写；不写 `safe`，最终状态留待索引仓维护者审查。
+
+## 0.1.4
+
+
+> 注：本节未发布；其中「自声明 unsafe」一条已由下一版撤回，能力面收敛见下一节。
+*2026-11-19 · 安全修复*
+
+- **按 11-13 判例（commit `5b453aa0b`）自声明 `cortico.tags: ["unsafe", ...]`**。
+  理由与 maibot 相同：本机 CBP WS 监听口 + 无鉴权时本机任意网页可拨入。
+- `world.ts` 真实 driver 改传 `authToken`；`definition.ts` 明确「缺 secret 返回空串
+  会让内核 listen()/dial() fail-shut」，不再读作「留空不校验」。
+- 依赖内核钉到 `^0.1.3`（含强制密钥 + Origin 校验）。
+- `node --test "tests/*.test.ts"` 复跑通过。
+
 ## Unreleased（2026-11-17 · 工单二 F1–F6 批次，未发版）
 
 - F1 残键一次性清理（用户决定 2）：升级装载（`definition.create()`）删除

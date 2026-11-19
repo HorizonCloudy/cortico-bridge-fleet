@@ -72,13 +72,19 @@ export interface DriverOptions {
   caps: string[];
   tools: ToolAnn[];
   /**
-   * Optional shared secret. SECURITY-CBP §3.1: it rides ONLY the HTTP Upgrade header
-   * `Authorization: Bearer <token>` — never a URL query, never a frame field
-   * (_BUILD-PLAN §3.1 hard rule). listen closes any socket whose query carries
-   * `token`/`access_token` (4401, refused before comparison) and any socket whose
-   * header is missing or wrong (4401); dial sends the header.
+   * REQUIRED shared secret. 2026-11-19 hardening (11-13 判例 elymes-nte-web): a
+   * loopback WebSocket is NOT private — any web page in the user's browser can open
+   * ws://127.0.0.1:<port> because WebSocket has no same-origin preflight. So the old
+   * "loopback needs no key" default is gone: both roles refuse to start without a
+   * non-empty token. It rides ONLY the HTTP Upgrade header `Authorization: Bearer
+   * <token>` — never a URL query, never a frame field (_BUILD-PLAN §3.1 hard rule).
+   * listen closes any socket whose query carries `token`/`access_token` (4401,
+   * refused before comparison), any socket whose header is missing or wrong (4401),
+   * and any socket whose `Origin` is a non-loopback web origin (4401); dial sends the
+   * header. Supply it from `ctx.secret('CORTICO_BRIDGE_TOKEN')` on the host side and
+   * the same env var on the framework side — never from a config panel.
    */
-  authToken?: string;
+  authToken: string;
   reconnectBaseMs?: number;
   reconnectMaxMs?: number;
   handshakeTimeoutMs?: number;
@@ -135,6 +141,34 @@ function queryTokenKeyOf(req: IncomingMessage): string | null {
     return null;
   }
   return null;
+}
+
+/**
+ * 2026-11-19 (11-13 判例): WebSocket handshakes carry `Origin` from browsers and
+ * are NOT subject to CORS preflight. A page on any site can dial a loopback port,
+ * so we allow only (a) no Origin — native clients such as the Python bridges — and
+ * (b) loopback web origins. Everything else is refused before any frame is read.
+ * `null` (opaque origin, e.g. file://) and malformed values are refused too.
+ */
+export function isLoopbackOrigin(origin: string): boolean {
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const h = u.hostname;
+    return h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === '[::1]';
+  } catch {
+    return false;
+  }
+}
+
+/** Log-safe form: scheme + host only, never a path, query or credential. */
+function originHostOf(origin: string): string {
+  try {
+    const u = new URL(origin);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return '<malformed-origin>';
+  }
 }
 
 export class BridgeDriver {
@@ -317,11 +351,15 @@ export class BridgeDriver {
   private async listen(): Promise<void> {
     const { host = '127.0.0.1', port = 39701, path } = this.opts;
     return new Promise((resolve) => {
-      // §3 rule 2: a public door needs a key. Non-loopback bind without a token is a
-      // hard refuse now, not the prior art's warning line (bridge.py:151-154 @37c1e6ccd).
-      if (!this.opts.authToken && !LOOPBACK_HOSTS.has(host)) {
+      // 2026-11-19 (11-13 判例): NO anonymous door, loopback included. A browser
+      // page can reach ws://127.0.0.1 without CORS preflight, so a tokenless
+      // listener is a local privilege-escalation surface, not a dev convenience.
+      // The old behaviour (loopback = no auth, non-loopback = warn/refuse) is gone.
+      if (!this.opts.authToken) {
         this.counters.listenErrors++;
-        this.emitState('door_closed: loopback required');
+        this.emitState(LOOPBACK_HOSTS.has(host)
+          ? 'door_closed: token required'
+          : 'door_closed: loopback required');
         resolve();
         return;
       }
@@ -346,6 +384,14 @@ export class BridgeDriver {
         resolve();
       });
       server.on('connection', (ws, req) => {
+        const origin = req.headers.origin;
+        if (typeof origin === 'string' && origin !== '' && !isLoopbackOrigin(origin)) {
+          // 11-13 判例: a foreign web page must never speak to a local bridge.
+          // Log the origin host only — never a token, never a full URL.
+          this.logLine('origin-refused', { origin: originHostOf(origin) });
+          ws.close(4401, 'origin refused');
+          return;
+        }
         const key = queryTokenKeyOf(req);
         if (key) {
           // §3.1: refuse before any comparison — URLs land in proxy logs and error
@@ -354,7 +400,9 @@ export class BridgeDriver {
           ws.close(4401, 'query token refused');
           return;
         }
-        if (this.opts.authToken && authHeaderOf(req) !== this.opts.authToken) {
+        // Token is required (enforced at listen()); a missing or wrong header is
+        // refused even if a caller somehow got past the bind with an empty secret.
+        if (authHeaderOf(req) !== this.opts.authToken) {
           ws.close(4401, 'bad token');
           return;
         }
@@ -369,12 +417,18 @@ export class BridgeDriver {
 
   private dial(): void {
     if (this.stopped || !this.opts.url) return;
+    // 2026-11-19 hard gate: never open an anonymous socket, even to loopback.
+    // start() still never rejects — the refusal surfaces through onState/counters.
+    if (!this.opts.authToken) {
+      this.emitState('dial_refused: token required');
+      return;
+    }
     let ws: WebSocket;
     try {
       // §3.1: the secret rides the Upgrade header only — never appended to the URL.
-      const headers = this.opts.authToken ? { authorization: `Bearer ${this.opts.authToken}` } : undefined;
+      const headers = { authorization: `Bearer ${this.opts.authToken}` };
       // F13 §4.4: both roles carry the pinned frame cap; the 100 MiB ws default is a hole.
-      ws = new WebSocket(this.opts.url, { maxPayload: this.maxPayloadBytes, ...(headers ? { headers } : {}) });
+      ws = new WebSocket(this.opts.url, { maxPayload: this.maxPayloadBytes, headers });
     } catch (e) {
       this.emitState(String(e));
       this.scheduleReconnect();

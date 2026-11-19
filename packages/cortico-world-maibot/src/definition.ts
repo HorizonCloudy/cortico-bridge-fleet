@@ -94,7 +94,12 @@ export const MAIBOT_BRIDGE: WorldDefinition<MaibotConfig> = {
   label: 'MaiBot（CBP 桥）',
   defaults: () => ({ ...DEFAULTS }),
   // create() 纯：装配层会为未启用的 World 也调一次（硬规则 1），只存配置不连接。
-  create: (ctx) => new MaibotBridgeWorld({ cfg: ctx.cfg }),
+  // 2026-11-19：共享密钥单源 = ctx.secret('CORTICO_BRIDGE_TOKEN')，与桥侧同名环境变量对称。
+  // 不落 config.json、不进面板；缺密钥时内核 listen() 拒绑定（fail-shut）。
+  create: (ctx) => new MaibotBridgeWorld({
+    cfg: ctx.cfg,
+    authToken: ctx.secret?.('CORTICO_BRIDGE_TOKEN') ?? '',
+  }),
   describe: BRIDGE_DESCRIBE,
 };
 

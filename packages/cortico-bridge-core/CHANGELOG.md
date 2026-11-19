@@ -2,6 +2,17 @@
 
 每个版本一节 `## <版本号>`；本包不是 Cortico 扩展，版本号与 `package.json` version 同步。
 
+## 0.1.3
+
+*2026-11-19 · 安全修复*
+
+- **安全（11-13 判例）**：`DriverOptions.authToken` 改必填，用类型系统强制所有调用点供密钥。
+- `listen()` 无 token 一律拒绑定（`door_closed: token required`），`dial()` 无 token 一律拒建链
+  （`dial_refused: token required`）；删掉旧的「环回免鉴权」降级路。
+- `connection` 加 `Origin` 白名单（`isLoopbackOrigin`）：非环回 web origin close 4401；
+  `token`/`access_token` query 见即拒；`Authorization` 头必须逐字匹配。
+- 新增 5 条 hardening 测试；`node --test "dist/tests/*.test.js"` 90/90 通过。
+
 ## Unreleased（2026-11-17 · 工单二 F2）
 
 - pins：`PINS.turn.ttlSeconds` 严读 `spec/pins.json` `turn.ttl_seconds`（缺段/坏值抛，F13 同款）。

@@ -98,3 +98,48 @@ npm 通道：`--registry=https://registry.npmmirror.com --ignore-scripts`（本�
 （桥 sender.py 属 ✗ 切片，第二周后）、`reply_tail` 类窄门（neko 专属，本包无）、
 MaiBot 内部 `llm/maisaka/knowledge` 等其余 21 个 ctx 代理（本包只钉 §1 表里的名字，
 新增引用先过 fleet 词表闸）。
+
+---
+
+## 安全声明（2026-11-19 · 能力面已收敛）
+
+本包 **不声明任何 warning tag**，`cortico.tags` 里没有 `unsafe`。
+
+### 为什么可以撤回，以及为什么不能写 `safe`
+
+`TAGS.md:40` 的「warning tag 一旦任一版本声明即保留」约束的是**已发布版本**。
+上一轮给本包加的 `unsafe` 从未 git commit、从未 npm publish，没有任何版本带过红标，
+撤回合法。`TAGS.md:42` 同时写明平台**没有 `safe` 标签**，标签缺席只代表
+「未声明且未审查」；`TAGS.md:31` 规定词表外 tag 会被 `check:extension` 拒。
+因此本包既不写 `"safe"`，也不自称已获 safe 认证——那是索引仓维护者审查后的状态。
+本声明只交付**能力面收敛的可验证证据**。
+
+### 11-13 判例的能力面怎么被收敛
+
+判例理由是「本地转发服务不校验来源，本机任意网页都能以控制台身份与 Coo 对话、
+改写宪法文件」。浏览器 WebSocket 不受同源策略 / CORS 预检保护，**环回监听本身
+不构成鉴权**。本链路两端都改了：
+
+| 门禁 | Cortico 侧（本包 + kernel） | 框架侧插件 |
+|---|---|---|
+| 强制密钥 | `authToken` 类型层必填；`ctx.secret('CORTICO_BRIDGE_TOKEN')` | 同名环境变量；`auth_headers()` 缺值抛错 |
+| fail-shut | listen 无 token 拒绑定、dial 无 token 拒建链 | 建链前取不到密钥直接退出，不静默重连 |
+| 凭据通道 | Upgrade 头 `Authorization: Bearer`；query 凭据见即拒 | 同；URI 判脏即拒 |
+| 来源校验 | 非环回 web `Origin` close 4401 | 同 |
+| 能力面 | `egress` 默认关；未申报能力本地判 60002 不下发；工具集是静态表 | 同；工具目录静态，未报名判 60002 |
+
+能力面只剩消息收发与静态工具目录，模型无法借这条链路读写本机任意文件，
+不落入 `TAGS.md:92` 的 `unsafe` 判据。CBP v1 帧表设计未重开、未新增协议字段。
+
+### 验证证据
+
+- core `node --test "dist/tests/*.test.js"` 全绿；本包 `node --test "tests/*.test.ts"` 全绿。
+- Python 桥三仓 `pytest tests/ -q` 全量通过；平台 `check:extension` 通过。
+
+### 边界
+
+- **破坏性迁移**：`CORTICO_BRIDGE_TOKEN` 必填，两端值必须逐字相同；未配时桥静默断连
+  是 fail-shut 设计行为，不是故障。
+
+- 这是作者侧的能力面收敛证据，**不等于**维护者已审查通过。
+- 最终 `safe` 状态由索引仓维护者审查裁定（`TAGS.md:42`）。

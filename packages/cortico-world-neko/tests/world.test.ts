@@ -436,11 +436,16 @@ test('F2：被调面未开 ⇒ peerToolCatalog 申报空集，BridgeDriver 构�
 
 test('F2：真握手下 ready.tools 为空集；入站 call 远小于 30s 拿到 60002 回帧', async () => {
   // FIXORDER F2 验收两条都落在真内核驱动 + 真 socket 上；端口避开 39701/39711 在册位。
+  // 2026-11-19：内核 listen 无密钥拒绑定（11-13 判例），真握手必须两端都带 authToken +
+  // Bearer Upgrade 头，否则这里只会拿到 ECONNREFUSED。
   const port = 39741;
-  const world = new NekoWorld({ cfg: { ...DEFAULTS, enabled: true, host: '127.0.0.1', port } });
+  const SECRET = 'f2-handshake-secret';
+  const world = new NekoWorld({ cfg: { ...DEFAULTS, enabled: true, host: '127.0.0.1', port }, authToken: SECRET });
   const { host } = fakeHost();
   await world.start(host);
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${port}`, {
+    headers: { authorization: `Bearer ${SECRET}` },
+  });
   type Wire = { t?: string; tools?: { name: string }[]; rid?: string; ok?: boolean; error?: { code?: number } };
   const wire: Wire[] = [];
   ws.on('message', (d: unknown) => wire.push(JSON.parse(String(d)) as Wire));

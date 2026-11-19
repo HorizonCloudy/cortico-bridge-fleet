@@ -95,7 +95,13 @@ export const ASTRBOT_BRIDGE: WorldDefinition<AstrbotBridgeConfig> = {
   label: 'AstrBot（CBP 收编版）',
   defaults: () => ({ ...DEFAULTS }),
   // create() 纯：装配层会为未启用的 World 也调一次（硬规则 1；先例 definition.ts:14 注释同断）。
-  create: (ctx) => new AstrbotBridgeWorld({ cfg: ctx.cfg }),
+  // 2026-11-19（SECURITY-CBP.md:121、11-13 判例）：共享密钥单源 =
+  // ctx.secret('CORTICO_BRIDGE_TOKEN')，与桥侧同名环境变量对称；不落 config.json、
+  // 不进面板、不进 hello 帧。缺密钥时 driver 拒拨（fail-shut）。
+  create: (ctx) => new AstrbotBridgeWorld({
+    cfg: ctx.cfg,
+    authToken: ctx.secret?.('CORTICO_BRIDGE_TOKEN') ?? '',
+  }),
   describe: BRIDGE_DESCRIBE,
 };
 

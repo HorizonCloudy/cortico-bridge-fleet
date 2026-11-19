@@ -124,6 +124,27 @@
 4. `meta.raw` 进模型前的剥除规则（`spec/CBP-v1.json:168` 的 `raw` 位与 `notice.raw` 同规则）。递归遍历对象与数组，命中即删键：键名大小写不敏感匹配 `token`、`access_token`、`secret`、`password`、`passwd`、`api_key`、`apikey`、`authorization`、`cookie`、`set-cookie`、`csrf_token`、`x-signature`、`signature`、`credentials`。对字符串值再做两件事：`[?&](access_)?token=` 之后的内容替换为 `<redacted>`，`scheme://user:pass@` 形态的 userinfo 替换为 `<redacted>`。剥除后仍保留原始事件的结构与非敏感字段（「恒留」规则的实现口径改为「恒留剥除后的原始载荷」）。同一规则对 `call.args`（`CBP-v1.json:211`，开映射）与 `reply.text` 生效。
 5. 凭证型动作不进目录。`get_cookies`、`get_csrf_token`、`get_credentials` 从 `catalog.js` 摘除，`onebot_call` 命中这三个名字直接 `reply{ok:false,error:{code:10002,message:"unsupported_action: 凭证动作不进桥"}}`。`10002` 是在册码（`errors.ts:11`）。`get_status`/`get_version_info` 这类不含凭据的动作保留。
 6. 不做的事：不做凭据轮换协议（v1 只支持重启生效，与先例 README 的 `x-hot:false` 口径一致，`config.ts:8`），不做多凭据/多密钥体系，不承诺剥除表能覆盖未知厂商键名（见 §6 第 7 条），不在 CBP 帧里搬「密钥迁移」（U3 明文口径不动，`reports/_COMPAT-BLUEPRINT.md:238`）。
+7. **（2026-11-19 修订 · 覆盖上面第 2 条的「环回」子条）** 强制密钥与来源校验是**所有**绑定的前提，环回不例外。原第 2 条只要求「非环回绑定须与非空 token 同时成立」，隐含「环回可免鉴权」——这是洞：浏览器 WebSocket 不受同源策略/CORS 预检保护，本机任意网页都能拨 `ws://127.0.0.1:<port>`。索引仓 10-22（commit `7dec0b00d`）与 11-13（commit `5b453aa0b`）两条判例已按此给同类能力面加 `unsafe`。落地口径：
+   - `authToken` 必填（类型层强制所有调用点供密钥）；`listen()` 无 token 拒绑定 `door_closed: token required`，`dial()` 无 token 拒建链 `dial_refused: token required`；
+   - `Origin` 只允许「无 Origin（native client）」或环回 web origin，其余 close 4401；
+   - `token` / `access_token` query 见即拒；`Authorization: Bearer` 头必须逐字匹配；
+   - Cortico 侧密钥走 `ctx.secret('CORTICO_BRIDGE_TOKEN')`，框架侧走同名环境变量；配置串、面板项、hello 帧体一律不留 token 位；缺密钥 = 断连，不静默降级；
+   - 标签口径由下面的「决定 8」取代：本批 4 个包的 `unsafe` 声明从未发布即撤回，改为收敛能力面；`TAGS.md:40` 的不可撤回约束只覆盖已发布版本。
+
+8. **（2026-11-19 二次修订 · 覆盖第 7 条的标签子条）** 用户要求「把 unsafe 全改成 safe」。
+   平台事实：`TAGS.md:42` 没有 `safe` 标签，缺席只代表「未声明且未审查」；`TAGS.md:31`
+   词表外 tag 被 `check:extension` 拒；`TAGS.md:40` 的红标不可撤回约束**已发布版本**，
+   而本批 4 个包的声明从未 commit / publish，撤回到合法。因此不写 `"safe"`、不自称已认证，
+   改为**收敛能力面 + 撤回未发布声明**：
+   - 10-22 类（onebot-bridge / koishi）：`src/guard.js` 加第 0 闸（本机文件引用，含 CQ 码
+     与深嵌套）与第 1 闸（动作名静态目录白名单）；两闸排在身份 / 策略 / 连接判定之前，
+     命中即 10002 且零出网。两份 `guard.js` 逐字相同，测试断言 sha256 一致。
+   - 11-13 类（maibot / neko）：第 7 条的 Bearer + Origin + fail-shut 已堵「任意网页拨入」；
+     能力面复核为 `egress` 默认关 + 未申报能力 60002 + 静态工具表，模型无法借链路读写
+     本机任意文件，不落入 `TAGS.md:92` 的判据。
+   - 双端都覆盖：Cortico 侧 world 包与框架侧 Python 桥各自有改动与测试；不重开 CBP v1
+     帧表设计，不新增协议字段，不新增配置项。
+   - 最终 `safe` 是索引仓维护者审查后的状态，作者不能自证；本决定只交付能力面收敛证据。
 
 **谁负责实现。**
 

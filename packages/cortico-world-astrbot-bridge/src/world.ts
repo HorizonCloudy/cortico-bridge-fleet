@@ -117,6 +117,12 @@ export const TOOL_DECLS: readonly ToolDecl[] = [
 
 export interface WorldOptions {
   cfg: Partial<AstrbotBridgeConfig> | undefined;
+  /**
+   * CBP 共享密钥，单源 = definition.create 里的 ctx.secret('CORTICO_BRIDGE_TOKEN')。
+   * 2026-11-19 起不进 AstrbotBridgeConfig：配置串落盘/进面板即违反 SECURITY-CBP §3。
+   * 缺省空串会让 driver fail-shut 拒拨，不是「免鉴权」开关。
+   */
+  authToken?: string;
   /** 注入点：契约测试用假驱动，不碰 WebSocket（先例 tests/helpers/fake-bridge.ts 同位）。 */
   makeDriver?: (cfg: AstrbotBridgeConfig, log: WorldHost['log'], handlers: DriverHandlers) => BridgeLike;
 }
@@ -161,7 +167,7 @@ export class AstrbotBridgeWorld implements World {
       new BridgeDriver(
         {
           url: this.cfg.url,
-          token: this.cfg.token,
+          authToken: this.opts.authToken ?? '',
           agent: { name: 'cortico-world-astrbot-bridge', version: readExtensionVersion(), sha: '' },
           caps: ['msg-v2', 'notice', 'peer-tools', 'catalog'],
           tools: peerToolCatalog(this.cfg),

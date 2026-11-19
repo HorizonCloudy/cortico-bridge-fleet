@@ -97,3 +97,47 @@ npm test            # node --test：纯函数 / 事件投影 / 门禁 / 契约
 行为对齐先例 `@horizoncloudy/cortico-world-onebot @2e91b7fb1`（第三方，不 fork、不重写）与本次
 `repos/cortico @836238311`、`nonebot-adapter-onebot @2450b67a1` 运行产物。见
 `reports/_BUILD-PLAN.md` §2.3 与 `_REALITY-LEDGER.md` R11/R12。
+
+---
+
+## 安全声明（2026-11-19 · 能力面已收敛）
+
+本包 **不声明任何 warning tag**，`cortico.tags` 里没有 `unsafe`。
+
+### 为什么可以撤回，以及为什么不能写 `safe`
+
+`TAGS.md:40` 的「warning tag 一旦任一版本声明即保留」约束的是**已发布版本**。
+上一轮给本包加的 `unsafe` 从未 git commit、从未 npm publish，没有任何版本带过红标，
+撤回合法。`TAGS.md:42` 同时写明平台**没有 `safe` 标签**，标签缺席只代表
+「未声明且未审查」；`TAGS.md:31` 规定词表外 tag 会被 `check:extension` 拒。
+因此本包既不写 `"safe"`，也不自称已获 safe 认证——那是索引仓维护者审查后的状态。
+本声明只交付**能力面收敛的可验证证据**。
+
+### 10-22 判例的能力面怎么被收敛
+
+`TAGS.md:92` 的 `unsafe` 判据是「模型能用它执行任意代码、读写任意文件、自由控制键鼠」。
+旧版 `onebot_call` 的 `params` 是开放对象，媒体参数 `file` 可指向本机路径，模型能把本机
+任意文件发进群聊或私聊。本版加两道不可绕过的闸：
+
+| 闸 | 落点 | 行为 |
+|---|---|---|
+| 第 0 闸 · 本机文件引用 | `src/guard.js::guardParams` | 出网前深度遍历 params；盘符、UNC、Unix 绝对路径、`..`、`file://`、message 里 `[CQ:*,file=...]` 一律拒 10002；只报键名，不回显值 |
+| 第 1 闸 · 动作名白名单 | `src/guard.js::guardActionName` | 只放行 `src/catalog.js` 静态目录的 35 个 v11 动作；实现端扩展动作不再原样透传，模型不能在运行时发明 action |
+
+两闸排在身份闸、策略闸与连接判定**之前**，命中即拒、零出网。媒体只接受
+http(s) URL 或 base64 数据；写动作仍要求本轮有实证发起方 + `confirm=true`。
+`guard.js` 在两个包里逐字相同，`test/guard.test.mjs` 断言两端 sha256 一致，
+一端漏改即红。
+
+### 验证证据
+
+- `node --test "test/*.test.mjs"`：两包全绿（本轮新增守卫用例）。
+- onebot `node tools/selfcheck.mjs` 全闸通过；`describe.json` 按新工具声明重新生成。
+- 平台 `check:extension` 通过（含 describe 一致性校验）。
+
+### 边界
+
+- 扩展动作如需启用，把条目登记进 `src/catalog.js` **静态表**并重启；不能由模型在运行时扩大能力面。
+
+- 这是作者侧的能力面收敛证据，**不等于**维护者已审查通过。
+- 最终 `safe` 状态由索引仓维护者审查裁定（`TAGS.md:42`）。
